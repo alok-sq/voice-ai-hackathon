@@ -1,25 +1,18 @@
 import { CircleAlert, FlaskConical, Languages, MapPin, Mic, Phone, Radio } from "lucide-react";
-import { AGENT, type CallerProfile } from "../domain/agent";
+import { AGENT } from "../domain/agent";
+import { LANGUAGES, languageLabel } from "../domain/language";
 import { OUTCOME_LABELS } from "../domain/lead";
-import { maskPhone } from "../domain/phone";
 import type { Health } from "../sources/api";
 import { findScenario } from "../sources/demo/demoSource";
 import { SCENARIOS, expectedOutcome } from "../sources/demo/scenarios";
 import type { CallOptions, Language } from "../sources";
+import { callerFor } from "../state/caller";
 import { orbState, type CallView } from "../state/callReducer";
 import { useElapsed } from "../state/useElapsed";
 import { AgentOrb, orbLabel } from "./AgentOrb";
 import { GroundRules } from "./GroundRules";
 import { Segmented } from "./Segmented";
 
-const LANGUAGES: { value: Language; label: string }[] = [
-  { value: "hi", label: "Hindi" },
-  { value: "mr", label: "Marathi" },
-  { value: "ta", label: "Tamil" },
-  { value: "kn", label: "Kannada" },
-  { value: "en", label: "English" },
-];
-const languageLabel = (l: Language) => LANGUAGES.find((x) => x.value === l)?.label ?? l;
 
 interface Props {
   view: CallView;
@@ -34,13 +27,6 @@ function liveHint(health: Health | null): string | null {
   if (!health.reachable) return "Backend is not running. Start it to make live calls.";
   if (!health.livekit) return "Live calls need the LiveKit keys in .env. Check /api/health for which are missing.";
   return null;
-}
-
-function callerFor(options: CallOptions): CallerProfile {
-  if (options.source === "demo") return findScenario(options.scenarioId).caller;
-  if (options.mode === "phone")
-    return { name: "Test caller", phone: options.phone ? maskPhone(options.phone) : "Number not set", city: "Phone line", source: "Team test number" };
-  return { name: "You", phone: "Browser microphone", city: "This device", source: "Live test" };
 }
 
 function ExpectedOutcome({ scenarioId }: { scenarioId: string }) {

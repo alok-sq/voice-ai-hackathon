@@ -18,7 +18,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import type { LeadField, LeadValues, Outcome } from "../contract/events";
 import { LEAD_FIELD_COUNT, LEAD_GROUPS, OUTCOME_LABELS, capturedCount, formatLeadValue } from "../domain/lead";
-import { leadRecord, type CallView } from "../state/callReducer";
+import { leadRecord, stepStatuses, type CallView } from "../state/callReducer";
 import { SectionHead } from "./SectionHead";
 import { SolarPanelMeter } from "./SolarPanelMeter";
 
@@ -47,8 +47,8 @@ export function LeadCard({ view }: { view: CallView }) {
     <section className="surface lead" aria-labelledby="lead-h">
       <SectionHead id="lead-h" title="Lead record" count={`${capturedCount(view.lead)} of ${LEAD_FIELD_COUNT}`} />
       <div className="lead__top">
-        <SolarPanelMeter lead={view.lead} />
-        <p className="lead__sub">Captured live from the call. Each panel cell lights up as a group of answers comes in.</p>
+        <SolarPanelMeter steps={stepStatuses(view).map((s) => s.status)} />
+        <p className="lead__sub">Captured live from the call. Each panel cell lights up as a step of the call passes.</p>
       </div>
 
       {/* Re-keyed on the outcome so its reveal plays each time it changes. */}

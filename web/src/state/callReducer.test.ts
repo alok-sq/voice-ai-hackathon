@@ -7,6 +7,7 @@ import {
   momentCounts,
   orbState,
   recordingDisclosed,
+  stepCells,
   stepCues,
   stepStatuses,
   stepsDone,
@@ -242,4 +243,22 @@ describe("stepCues", () => {
     expect(stepCues(["done", "failed", "skipped"], ["current", "pending", "pending"])).toEqual({ passed: 0, failed: 0 }));
   it("stays silent when nothing changed", () =>
     expect(stepCues(["done", "current"], ["done", "current"])).toEqual({ passed: 0, failed: 0 }));
+});
+
+describe("a step passes on the answer", () => {
+  it("marks the current step done as soon as its fields are captured", () => {
+    const v = apply(live(), { type: "state", state: "IDENTITY" }, { type: "lead", field: "identity_confirmed", value: true });
+    expect(statusOf(v, "IDENTITY")).toBe("done");
+  });
+  it("keeps a current step current while it is only partly answered", () => {
+    const v = apply(live(), { type: "state", state: "PROPERTY" }, { type: "lead", field: "property_type", value: "independent_house" });
+    expect(statusOf(v, "PROPERTY")).toBe("current");
+  });
+});
+
+describe("stepCells", () => {
+  it("gives the solar panel one cell per step", () =>
+    expect(stepCells(["done", "failed", "partial", "current", "pending", "skipped", "done", "pending"])).toEqual([
+      "full", "failed", "partial", "empty", "empty", "empty", "full", "empty",
+    ]));
 });

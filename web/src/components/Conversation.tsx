@@ -17,7 +17,8 @@ const MARKER_ICONS: Record<MarkerKind, ReactNode> = {
 /** Distance from the bottom (px) within which the log keeps following new lines. */
 const FOLLOW_THRESHOLD = 80;
 
-export function Conversation({ view, callerName }: { view: CallView; callerName: string }) {
+/** `replay` shows a finished call as it ended: no word-by-word reveal. */
+export function Conversation({ view, callerName, replay = false }: { view: CallView; callerName: string; replay?: boolean }) {
   const logRef = useRef<HTMLDivElement>(null);
   const following = useRef(true);
   const last = view.timeline.at(-1);
@@ -45,14 +46,14 @@ export function Conversation({ view, callerName }: { view: CallView; callerName:
             <p className="empty__body">The conversation appears here as it happens, in the caller's own words.</p>
           </div>
         ) : (
-          view.timeline.map((item) => <TimelineRow key={item.id} item={item} callerName={callerName} />)
+          view.timeline.map((item) => <TimelineRow key={item.id} item={item} callerName={callerName} replay={replay} />)
         )}
       </div>
     </section>
   );
 }
 
-function TimelineRow({ item, callerName }: { item: TimelineItem; callerName: string }) {
+function TimelineRow({ item, callerName, replay }: { item: TimelineItem; callerName: string; replay: boolean }) {
   switch (item.kind) {
     case "line":
       return item.role === "agent" ? (
@@ -60,7 +61,7 @@ function TimelineRow({ item, callerName }: { item: TimelineItem; callerName: str
           <AgentOrb state="idle" size="sm" />
           <div className="msg__body">
             <span className="msg__who">{AGENT.name}</span>
-            <div className="msg__bubble">{item.final ? <RevealText text={item.text} /> : item.text}</div>
+            <div className="msg__bubble">{item.final && !replay ? <RevealText text={item.text} /> : item.text}</div>
           </div>
         </div>
       ) : (

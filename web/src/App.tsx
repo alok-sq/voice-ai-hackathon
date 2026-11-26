@@ -3,17 +3,24 @@ import { AgentSidebar } from "./components/AgentSidebar";
 import { CallActions } from "./components/CallActions";
 import { CallProgress } from "./components/CallProgress";
 import { Conversation } from "./components/Conversation";
+import { HistoryView } from "./components/HistoryView";
 import { IntroDialog } from "./components/IntroDialog";
 import { LeadCard } from "./components/LeadCard";
 import { PerformanceBand } from "./components/PerformanceBand";
+import { SessionView } from "./components/SessionView";
+import { SummaryCard } from "./components/SummaryCard";
 import { TopBar } from "./components/TopBar";
 import { findScenario } from "./sources/demo/demoSource";
 import { DEFAULT_SCENARIO_ID } from "./sources/demo/scenarios";
 import type { CallOptions } from "./sources";
+import { callerFor } from "./state/caller";
 import { unlockAudio } from "./state/sound";
 import { useCall } from "./state/useCall";
 import { useHealth } from "./state/useHealth";
+import { useSessions } from "./state/useSessions";
 import { useSoundPreference, useStepSounds } from "./state/useStepSounds";
+
+type Route = { name: "call" } | { name: "history" } | { name: "session"; id: string };
 
 export function App() {
   const { view, start, end, requestHandoff } = useCall();
@@ -22,6 +29,7 @@ export function App() {
   const [phoneError, setPhoneError] = useState<string | null>(null);
   // Shown on every visit, as the first thing anyone sees.
   const [introOpen, setIntroOpen] = useState(true);
+  const [route, setRoute] = useState<Route>({ name: "call" });
   const [soundOn, setSoundOn] = useSoundPreference();
   useStepSounds(view, soundOn);
 
@@ -41,10 +49,26 @@ export function App() {
     if (health.livekit) setOptions((o) => ({ ...o, source: "live" }));
   }, [health]);
 
-  const callerName = options.source === "demo" ? findScenario(options.scenarioId).caller.name : "Caller";
+  const caller = callerFor(options);
+  const { sessions, clear } = useSessions(view, {
+    source: options.source,
+    language: options.language,
+    scenarioTitle: options.source === "demo" ? findScenario(options.scenarioId).title : null,
+    caller,
+  });
+  const finished = view.phase === "ended" || view.phase === "error";
+  const currentSummary = finished ? sessions.find((s) => s.id === String(view.startedAt)) : undefined;
+  const openSession = route.name === "session" ? sessions.find((s) => s.id === route.id) : undefined;
+
+  // Each view starts at the top.
+  const routeKey = route.name === "session" ? `session:${route.id}` : route.name;
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [routeKey]);
 
   const startCall = (opts: CallOptions) => {
     unlockAudio();
+    setRoute({ name: "call" });
     void start(opts);
   };
   const closeIntro = () => {
@@ -59,10 +83,18 @@ export function App() {
   };
 
   return (
-    <div className="shell">
+    <div className="shell" data-route={route.name}>
       <AgentSidebar view={view} health={health} options={options} onOptionsChange={setOptions} phoneError={phoneError} />
       <div className="main">
-        <TopBar source={options.source} soundOn={soundOn} onToggleSound={() => setSoundOn(!soundOn)} onAbout={() => setIntroOpen(true)}>
+        <TopBar
+          source={options.source}
+          tab={route.name === "call" ? "call" : "history"}
+          historyCount={sessions.length}
+          onTab={(tab) => setRoute(tab === "call" ? { name: "call" } : { name: "history" })}
+          soundOn={soundOn}
+          onToggleSound={() => setSoundOn(!soundOn)}
+          onAbout={() => setIntroOpen(true)}
+        >
           <CallActions
             view={view}
             options={options}
@@ -72,11 +104,20 @@ export function App() {
             onPhoneError={setPhoneError}
           />
         </TopBar>
-        <main className="work">
-          <CallProgress view={view} />
-          <Conversation view={view} callerName={callerName} />
-          <LeadCard view={view} />
-          <PerformanceBand view={view} />
+        <main className="work" key={routeKey}>
+          {route.name === "call" && (
+            <>
+              {currentSummary && <SummaryCard session={currentSummary} />}
+              <CallProgress view={view} />
+              <Conversation view={view} callerName={caller.name} />
+              <LeadCard view={view} />
+              <PerformanceBand view={view} />
+            </>
+          )}
+          {(route.name === "history" || (route.name === "session" && !openSession)) && (
+            <HistoryView sessions={sessions} onOpen={(id) => setRoute({ name: "session", id })} onClear={clear} onWatchDemo={watchDemo} />
+          )}
+          {openSession && <SessionView session={openSession} onBack={() => setRoute({ name: "history" })} />}
         </main>
       </div>
       <IntroDialog open={introOpen} callActive={active} soundOn={soundOn} onClose={closeIntro} onWatchDemo={watchDemo} />

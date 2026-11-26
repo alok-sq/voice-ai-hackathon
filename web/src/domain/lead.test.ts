@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { capturedCount, isBlocking, newlyFull, panelCells } from "./lead";
+import { capturedCount, isBlocking, newlyFull } from "./lead";
 
 describe("capturedCount", () => {
   it("is zero for an empty lead", () => expect(capturedCount({})).toBe(0));
@@ -16,15 +16,6 @@ describe("isBlocking", () => {
   it("accepts a confirmed identity", () => expect(isBlocking("identity_confirmed", true)).toBe(false));
   it("accepts an owned roof", () => expect(isBlocking("roof_ownership", "owned")).toBe(false));
   it("treats declining a loan as a preference, not a failure", () => expect(isBlocking("loan_interest", false)).toBe(false));
-});
-
-describe("panelCells", () => {
-  it("has one empty cell per field group before a call", () =>
-    expect(panelCells({})).toEqual(["empty", "empty", "empty", "empty", "empty", "empty"]));
-  it("lights a group once all its fields are in, half-lights it before", () => {
-    expect(panelCells({ identity_confirmed: true })[0]).toBe("partial");
-    expect(panelCells({ identity_confirmed: true, solar_interest: true })[0]).toBe("full");
-  });
 });
 
 describe("newlyFull", () => {

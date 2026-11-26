@@ -121,14 +121,7 @@ export function isBlocking(field: LeadField, value: unknown): boolean {
   }
 }
 
-export type CellState = "empty" | "partial" | "full";
-
-/** One solar-panel cell per field group: lit when the group is captured, half-lit when partly. */
-export const panelCells = (lead: Lead): CellState[] =>
-  LEAD_GROUPS.map((g) => {
-    const n = g.fields.filter(({ field }) => isCaptured(lead, field)).length;
-    return n === 0 ? "empty" : n === g.fields.length ? "full" : "partial";
-  });
+export type CellState = "empty" | "partial" | "full" | "failed";
 
 /** Indexes of cells that have just become full, to twinkle once. */
 export const newlyFull = (prev: CellState[], next: CellState[]): number[] =>

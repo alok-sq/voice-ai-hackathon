@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import type { Lead } from "../contract/events";
-import { LEAD_FIELD_COUNT, LEAD_GROUPS, capturedCount, newlyFull, panelCells, type CellState } from "../domain/lead";
+import { STEPS, newlyFull, type CellState } from "../domain/lead";
+import { stepCells, stepsDone, type StepStatus } from "../state/callReducer";
 
 /** How long one twinkle lives. Matches the CSS animation; also clears it under reduced motion. */
 const TWINKLE_MS = 1400;
-/** Cell centres over the tilted 3 × 2 face, as % of the face box (the top row sits higher under perspective). */
+/** Cell centres over the tilted 4 × 2 face, as % of the face box (the top row sits higher under perspective). */
 const CELL_POS = [
-  { x: 19, y: 30 }, { x: 50, y: 30 }, { x: 81, y: 30 },
-  { x: 17, y: 74 }, { x: 50, y: 74 }, { x: 83, y: 74 },
+  { x: 14, y: 30 }, { x: 38, y: 30 }, { x: 62, y: 30 }, { x: 86, y: 30 },
+  { x: 12, y: 74 }, { x: 37, y: 74 }, { x: 63, y: 74 }, { x: 88, y: 74 },
 ];
 
 interface Sparkle {
@@ -18,23 +18,23 @@ interface Sparkle {
 }
 
 /**
- * Lead capture as a solar panel that charges: one cell per field group,
- * lit when the group is captured, half-lit when partly captured.
- * Each cell twinkles once as it lights; the whole panel gets a bigger
- * twinkle and a slow sheen once every field is in.
+ * The call as a solar panel that charges: one cell per step of the progress
+ * strip, lit the moment that step passes. It reads the same step statuses as
+ * the strip and the chimes, so tick, sound and twinkle land in the same frame.
+ * The whole panel gets a bigger twinkle and a slow sheen once every step passes.
  */
-export function SolarPanelMeter({ lead }: { lead: Lead }) {
-  const cells = panelCells(lead);
-  const captured = capturedCount(lead);
-  const full = captured === LEAD_FIELD_COUNT;
+export function SolarPanelMeter({ steps }: { steps: StepStatus[] }) {
+  const cells = stepCells(steps);
+  const passed = stepsDone(steps.map((status) => ({ status })));
+  const full = passed === STEPS.length;
   const sparkles = useTwinkles(cells, full);
 
   return (
-    <div className="meter" role="meter" aria-valuemin={0} aria-valuemax={LEAD_FIELD_COUNT} aria-valuenow={captured} aria-label="Lead fields captured">
+    <div className="meter" role="meter" aria-valuemin={0} aria-valuemax={STEPS.length} aria-valuenow={passed} aria-label="Steps passed">
       <div className="panel" data-full={full} aria-hidden="true">
         <div className="panel__face">
           {cells.map((state, i) => (
-            <span key={LEAD_GROUPS[i]!.title} className={`panel__cell is-${state}`} title={`${LEAD_GROUPS[i]!.title}: ${cellText(state)}`} />
+            <span key={STEPS[i]!.state} className={`panel__cell is-${state}`} title={`${STEPS[i]!.label}: ${cellText(state)}`} />
           ))}
         </div>
         <span className="panel__stand" />
@@ -49,14 +49,15 @@ export function SolarPanelMeter({ lead }: { lead: Lead }) {
         </span>
       </div>
       <span className="meter__value">
-        {captured}
-        <span className="meter__total">/{LEAD_FIELD_COUNT}</span>
+        {passed}
+        <span className="meter__total">/{STEPS.length}</span>
       </span>
     </div>
   );
 }
 
-const cellText = (s: CellState) => (s === "full" ? "captured" : s === "partial" ? "partly captured" : "not captured");
+const cellText = (s: CellState) =>
+  s === "full" ? "passed" : s === "failed" ? "ruled out" : s === "partial" ? "partly answered" : "not passed yet";
 
 /** A four-point star: long vertical and horizontal points with soft concave sides. */
 function Star({ className }: { className: string }) {
