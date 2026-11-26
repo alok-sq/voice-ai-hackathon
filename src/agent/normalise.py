@@ -68,6 +68,24 @@ _NO = {"nahi", "nahin", "nhi", "na", "no", "nope", "mat", "नहीं", "न�
 _WEAK_YES = {"ji", "जी"}
 
 
+_UNKNOWN_RE = re.compile(
+    r"^(pata\s*nahin?|malum\s*nahin?|pata\s*nahi|don't know|dont know|no idea|not sure|"
+    r"skip|next|pass|chhodo|chhod do|baad mein|"
+    r"पता नहीं|मालूम नहीं|छोड़ो|बाद में)$",
+    re.IGNORECASE,
+)
+
+
+def is_unknown(text: str) -> bool:
+    """Caller declined or does not know — treat as no answer, not a value."""
+    t = (text or "").strip().lower()
+    if not t:
+        return False
+    if _UNKNOWN_RE.match(t):
+        return True
+    return t in {"hmm", "uh", "um", "aa", "ahh", "okay wait", "ek second", "wait"}
+
+
 def parse_yes_no(text: str) -> Optional[bool]:
     tokens = set(re.findall(r"[a-z]+|[\u0900-\u097F]+", text.lower()))
     yes = tokens & (_YES - _WEAK_YES)
@@ -101,13 +119,31 @@ def parse_property_type(text: str) -> Optional[PropertyType]:
     return None
 
 
+_ROOF_SHARED = [
+    "shared", "saajha", "sajha", "joint", "saanjha", "साझा", "सांझा", "साझी",
+    "common", "comman", "commom", "कॉमन", "कमन",
+    "society ki", "society की", "सोसाइटी की", "सोसायटी की",
+    "sabki", "sab ki", "सबकी", "सब की", "सभी",
+    "members", "मेंबर", "सदस्य",
+]
+_ROOF_RENTED = ["kiray", "kiraye", "rent", "किराये", "किराए", "किराय"]
+_ROOF_OWNED = ["own", "apna", "apni", "meri", "mera", "mine", "अपना", "अपनी", "मेरा", "मेरी", "मालिक"]
+_NEG = ["nahi", "nahin", "nhi", "नहीं", "नही", "not"]
+
+
 def parse_roof_ownership(text: str) -> Optional[RoofOwnership]:
     t = text.lower()
-    if _has(t, ["shared", "saajha", "sajha", "joint", "saanjha", "साझा", "सांझा"]):
+    shared = _has(t, _ROOF_SHARED)
+    rented = _has(t, _ROOF_RENTED)
+    owned = _has(t, _ROOF_OWNED)
+    negated = _has(t, _NEG)
+    if shared and not negated:
         return RoofOwnership.shared
-    if _has(t, ["kiray", "kiraye", "rent", "किराये", "किराए", "किराय"]):
+    if rented:
         return RoofOwnership.rented
-    if _has(t, ["own", "apna", "apni", "meri", "mera", "mine", "अपना", "अपनी", "मेरा", "मेरी", "मालिक"]):
+    if owned:
+        return RoofOwnership.owned
+    if shared and negated:
         return RoofOwnership.owned
     return None
 

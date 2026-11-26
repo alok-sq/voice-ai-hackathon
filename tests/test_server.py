@@ -48,6 +48,11 @@ def test_token_rejects_unknown_language(client, monkeypatch):
     assert client.post("/api/token", json={"language": "xx"}).status_code == 400
 
 
+def test_token_rejects_unknown_pipeline(client, monkeypatch):
+    configure(monkeypatch)
+    assert client.post("/api/token", json={"language": "hi", "pipeline": "foo"}).status_code == 400
+
+
 def test_call_rejects_malformed_number(client, monkeypatch):
     configure(monkeypatch, SIP_OUTBOUND_TRUNK_ID="ST_1", TEST_NUMBER_ALLOWLIST="+919800000001")
     assert client.post("/api/call", json={"phone": "12345"}).status_code == 400

@@ -109,6 +109,9 @@ function ReplyChart({ turns }: { turns: Turn[] }) {
       </svg>
       <span className="chart__readout mono">
         Turn {shown + 1}: {turns[shown]!.replyMs} ms
+        {turns[shown]!.sttMs != null ? ` · stt ${turns[shown]!.sttMs}` : ""}
+        {turns[shown]!.llmTtftMs != null ? ` · llm ${turns[shown]!.llmTtftMs}` : ""}
+        {turns[shown]!.ttsTtfbMs != null ? ` · tts ${turns[shown]!.ttsTtfbMs}` : ""}
       </span>
       <table className="sr-only">
         <caption>Reply time per turn</caption>

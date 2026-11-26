@@ -1,17 +1,20 @@
 import { createDemoSource } from "./demo/demoSource";
-import { throwIfAborted, type CallOptions, type CallSource, type ConnectMode } from "./types";
+import { throwIfAborted, type CallOptions, type CallSource, type ConnectMode, type Pipeline } from "./types";
 
 export function createSource(opts: CallOptions): CallSource {
   if (opts.source === "scripted") return createDemoSource(opts.scenarioId);
   const mode: ConnectMode = opts.source === "live" ? "phone" : "browser";
-  return createLazyLiveSource({ mode, language: opts.language, phone: opts.phone });
+  const pipeline: Pipeline = opts.source === "demo_v2" ? "s2s" : "cascade";
+  return createLazyLiveSource({ mode, language: opts.language, phone: opts.phone, pipeline });
 }
 
 /**
  * livekit-client is most of the bundle, so it is only downloaded when a live
  * call starts. Scripted mode and first paint stay fast.
  */
-function createLazyLiveSource(opts: Pick<CallOptions, "language" | "phone"> & { mode: ConnectMode }): CallSource {
+function createLazyLiveSource(
+  opts: Pick<CallOptions, "language" | "phone"> & { mode: ConnectMode; pipeline: Pipeline },
+): CallSource {
   let inner: CallSource | null = null;
   return {
     async start(ctx) {

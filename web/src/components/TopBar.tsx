@@ -1,7 +1,16 @@
-import { FlaskConical, Mic, PhoneCall } from "lucide-react";
+import { AudioLines, FlaskConical, Mic, PhoneCall } from "lucide-react";
+import type { ReactNode } from "react";
 import type { SourceKind } from "../sources";
 
+const CHIP: Record<SourceKind, { icon: ReactNode; label: string }> = {
+  demo: { icon: <Mic size={16} />, label: "Demo · cascaded" },
+  demo_v2: { icon: <AudioLines size={16} />, label: "Demo v2 · speech to speech" },
+  live: { icon: <PhoneCall size={16} />, label: "Live call" },
+  scripted: { icon: <FlaskConical size={16} />, label: "Scripted playback" },
+};
+
 export function TopBar({ source }: { source: SourceKind }) {
+  const chip = CHIP[source];
   return (
     <header className="topbar">
       <div className="topbar__brand">
@@ -10,8 +19,8 @@ export function TopBar({ source }: { source: SourceKind }) {
         <span className="topbar__title">Voice agent console</span>
       </div>
       <span className="chip" data-source={source}>
-        {source === "live" ? <PhoneCall size={16} /> : source === "demo" ? <Mic size={16} /> : <FlaskConical size={16} />}
-        {source === "live" ? "Live call" : source === "demo" ? "Demo · talk to the agent" : "Scripted playback"}
+        {chip.icon}
+        {chip.label}
       </span>
     </header>
   );

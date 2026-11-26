@@ -1,5 +1,5 @@
 /** Thin client for the console backend (server/main.py). Same-origin `/api`, proxied by Vite. */
-import type { Language } from "./types";
+import type { Language, Pipeline } from "./types";
 
 export interface Health {
   reachable: boolean;
@@ -41,8 +41,13 @@ export async function fetchHealth(signal?: AbortSignal): Promise<Health> {
 export const placePhoneCall = (phone: string, language: Language, signal?: AbortSignal) =>
   post<{ room: string }>("/call", { phone, language }, signal);
 
-export const getRoomToken = (language: Language, room: string | null, listenOnly: boolean, signal?: AbortSignal) =>
-  post<{ url: string; token: string; room: string }>("/token", { language, room, listenOnly }, signal);
+export const getRoomToken = (
+  language: Language,
+  room: string | null,
+  listenOnly: boolean,
+  pipeline: Pipeline = "cascade",
+  signal?: AbortSignal,
+) => post<{ url: string; token: string; room: string }>("/token", { language, room, listenOnly, pipeline }, signal);
 
 /** Closes the room for everyone: hangs up the phone leg and ends the agent job. */
 export const endRoom = (room: string) => post<{ ok: boolean }>("/end", { room });
