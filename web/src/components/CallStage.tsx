@@ -121,16 +121,16 @@ export function CallStage({ view, health, options, onOptionsChange, onStart, onE
         </p>
       )}
 
+      {/* Stays up after the call so the final state of each rule can be read. */}
+      {view.phase !== "idle" && <GroundRules view={view} />}
+
       <div className="setup">
         <h6 className="setup__title">Call setup</h6>
         {active ? (
-          <>
-            <p className="setup__summary">
-              {isLive ? (phoneMode ? "Live · Phone" : "Live · Browser") : `Demo · ${findScenario(options.scenarioId).title}`} ·{" "}
-              {languageLabel(options.language)}
-            </p>
-            <GroundRules view={view} />
-          </>
+          <p className="setup__summary">
+            {isLive ? (phoneMode ? "Live · Phone" : "Live · Browser") : `Demo · ${findScenario(options.scenarioId).title}`} ·{" "}
+            {languageLabel(options.language)}
+          </p>
         ) : (
           <>
             <div className="field">

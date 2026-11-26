@@ -18,7 +18,7 @@ export function GroundRules({ view }: { view: CallView }) {
       status: moments.guardrail ? `${moments.guardrail} blocked` : "Guarded",
       met: true,
     },
-    { text: "Stops when the caller asks", status: "Guarded", met: true },
+    { text: "Stops when the caller asks", status: view.outcome?.outcome === "do_not_call" ? "Stopped" : "Guarded", met: true },
     { text: "Hands over when stuck", status: view.handoff ? "Handed over" : "Ready", met: true },
   ];
 
