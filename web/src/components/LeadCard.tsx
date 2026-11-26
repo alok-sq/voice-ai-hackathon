@@ -17,8 +17,9 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { LeadField, LeadValues, Outcome } from "../contract/events";
-import { LEAD_FIELD_COUNT, LEAD_GROUPS, OUTCOME_LABELS, formatLeadValue } from "../domain/lead";
+import { LEAD_GROUPS, OUTCOME_LABELS, formatLeadValue } from "../domain/lead";
 import { leadRecord, type CallView } from "../state/callReducer";
+import { SolarPanelMeter } from "./SolarPanelMeter";
 
 const GROUP_ICONS: Record<string, LucideIcon> = {
   Caller: UserRoundCheck,
@@ -38,7 +39,6 @@ const OUTCOME_ICONS: Record<Outcome, LucideIcon> = {
 };
 
 export function LeadCard({ view }: { view: CallView }) {
-  const captured = LEAD_GROUPS.flatMap((g) => g.fields).filter(({ field }) => view.lead[field] !== undefined).length;
   const outcome = view.outcome;
   const OutcomeIcon = outcome ? OUTCOME_ICONS[outcome.outcome] : CircleDashed;
 
@@ -49,10 +49,11 @@ export function LeadCard({ view }: { view: CallView }) {
           <h6 id="lead-h">Lead record</h6>
           <p className="lead__sub">Captured live from the call</p>
         </div>
-        <ProgressRing value={captured} total={LEAD_FIELD_COUNT} />
+        <SolarPanelMeter lead={view.lead} />
       </div>
 
-      <div className="outcome" data-outcome={outcome?.outcome ?? "none"}>
+      {/* Re-keyed on the outcome so its reveal plays each time it changes. */}
+      <div className="outcome" data-outcome={outcome?.outcome ?? "none"} key={outcome?.outcome ?? "none"}>
         <span className="outcome__icon">
           <OutcomeIcon size={20} />
         </span>
@@ -83,33 +84,6 @@ export function LeadCard({ view }: { view: CallView }) {
 
       <CopyRecordButton disabled={!outcome} text={JSON.stringify(leadRecord(view), null, 2)} />
     </section>
-  );
-}
-
-/** Meter: share of lead fields captured. Fill and track are steps of the same blue ramp. */
-function ProgressRing({ value, total }: { value: number; total: number }) {
-  const r = 22;
-  const c = 2 * Math.PI * r;
-  const share = total ? value / total : 0;
-  return (
-    <div className="ring" role="meter" aria-valuemin={0} aria-valuemax={total} aria-valuenow={value} aria-label="Lead fields captured">
-      <svg viewBox="0 0 56 56" width="56" height="56" aria-hidden="true">
-        <circle cx="28" cy="28" r={r} className="ring__track" />
-        <circle
-          cx="28"
-          cy="28"
-          r={r}
-          className="ring__fill"
-          strokeDasharray={c}
-          strokeDashoffset={c * (1 - share)}
-          transform="rotate(-90 28 28)"
-        />
-      </svg>
-      <span className="ring__value">
-        {value}
-        <span className="ring__total">/{total}</span>
-      </span>
-    </div>
   );
 }
 

@@ -1,6 +1,7 @@
 import { CircleCheck } from "lucide-react";
 import { useState } from "react";
 import { medianReplyMs, momentCounts, type CallView, type Turn } from "../state/callReducer";
+import { useCountUp } from "../state/motion";
 
 /** Reply-time target from the brief: no awkward pause, under a second. */
 const TARGET_MS = 1000;
@@ -10,9 +11,10 @@ const TARGET_MS = 1000;
  * Stat tiles use the UI sans (never a display face) per the chart rules.
  */
 export function PerformanceBand({ view }: { view: CallView }) {
-  const median = medianReplyMs(view.turns);
   const moments = momentCounts(view);
-  const handled = moments.interrupted + moments.guardrail + moments.reprompt;
+  const median = useCountUp(medianReplyMs(view.turns));
+  const cost = useCountUp(view.usage ? view.usage.costInr : null);
+  const handled = useCountUp(moments.interrupted + moments.guardrail + moments.reprompt) ?? 0;
 
   return (
     <section className="card perf" aria-labelledby="perf-h">
@@ -21,15 +23,20 @@ export function PerformanceBand({ view }: { view: CallView }) {
         <span className="caption">What the judges score, measured on this call</span>
       </div>
       <div className="perf__grid">
-        <Tile label="Median reply" value={median !== null ? `${median} ms` : "—"} note={`Target under ${TARGET_MS / 1000} s`} good={median !== null && median < TARGET_MS} />
+        <Tile
+          label="Median reply"
+          value={median !== null ? `${Math.round(median)} ms` : "—"}
+          note={`Target under ${TARGET_MS / 1000} s`}
+          good={median !== null && median < TARGET_MS}
+        />
         <div className="tile tile--chart">
           <span className="tile__label">Reply time per turn</span>
           <ReplyChart turns={view.turns} />
         </div>
-        <Tile label="Cost per call" value={view.usage ? `₹${view.usage.costInr.toFixed(2)}` : "—"} note="Speech, language and voice" />
+        <Tile label="Cost per call" value={cost !== null ? `₹${cost.toFixed(2)}` : "—"} note="Speech, language and voice" />
         <Tile
           label="Moments handled"
-          value={String(handled)}
+          value={String(Math.round(handled))}
           note={`${moments.interrupted} interruptions · ${moments.guardrail} blocked claims · ${moments.reprompt} re-prompts`}
         />
       </div>

@@ -53,6 +53,10 @@ export function App() {
         <LeadCard view={view} />
         <PerformanceBand view={view} />
       </main>
+      <footer className="footer">
+        <span>SolarSquare Voice AI Hackathon · Lead qualification</span>
+        <span>Calls are recorded. Pari never promises prices, savings or subsidy amounts.</span>
+      </footer>
     </div>
   );
 }

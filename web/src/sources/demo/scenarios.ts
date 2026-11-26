@@ -1,4 +1,4 @@
-import type { CallEvent } from "../../contract/events";
+import type { CallEvent, Outcome } from "../../contract/events";
 import type { CallerProfile } from "../../domain/agent";
 
 /** [delay after the previous step in ms, events emitted together]. */
@@ -335,3 +335,10 @@ export const SCENARIOS: Scenario[] = [
   notQualified,
 ];
 export const DEFAULT_SCENARIO_ID = happyPath.id;
+
+/** The outcome a scenario ends with (its last outcome event). */
+export function expectedOutcome(s: Scenario): Outcome | null {
+  const outcomes = s.script.flatMap(([, events]) => events).filter((e) => e.type === "outcome");
+  const last = outcomes.at(-1);
+  return last && last.type === "outcome" ? last.outcome : null;
+}

@@ -2,7 +2,8 @@ import { CircleAlert, FlaskConical, MapPin, Mic, Phone, PhoneCall, PhoneOff, Rad
 import { useState } from "react";
 import { AGENT, type CallerProfile } from "../domain/agent";
 import { findScenario } from "../sources/demo/demoSource";
-import { SCENARIOS } from "../sources/demo/scenarios";
+import { SCENARIOS, expectedOutcome } from "../sources/demo/scenarios";
+import { OUTCOME_LABELS } from "../domain/lead";
 import type { Health } from "../sources/api";
 import type { CallOptions, Language } from "../sources";
 import { orbState, type CallView } from "../state/callReducer";
@@ -43,6 +44,16 @@ function liveHint(health: Health | null): string | null {
   if (!health.reachable) return "Backend is not running. Start it to make live calls.";
   if (!health.livekit) return "Live calls need the LiveKit keys in .env. Check /api/health for which are missing.";
   return null;
+}
+
+function ExpectedOutcome({ scenarioId }: { scenarioId: string }) {
+  const outcome = expectedOutcome(findScenario(scenarioId));
+  if (!outcome) return null;
+  return (
+    <span className="expected" data-outcome={outcome}>
+      Ends as <strong>{OUTCOME_LABELS[outcome]}</strong>
+    </span>
+  );
 }
 
 function callerFor(options: CallOptions): CallerProfile {
@@ -158,6 +169,7 @@ export function CallStage({ view, health, options, onOptionsChange, onStart, onE
                   ))}
                 </select>
                 <small>{findScenario(options.scenarioId).description}</small>
+                <ExpectedOutcome scenarioId={options.scenarioId} />
               </div>
             )}
 

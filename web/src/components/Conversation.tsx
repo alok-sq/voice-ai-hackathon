@@ -4,6 +4,7 @@ import { AGENT } from "../domain/agent";
 import { currentStepLabel, stepStatuses, type CallView, type MarkerKind, type TimelineItem } from "../state/callReducer";
 import { AgentOrb } from "./AgentOrb";
 import { ProgressTrack } from "./ProgressTrack";
+import { RevealText } from "./RevealText";
 import { RooftopIllustration } from "./RooftopIllustration";
 
 const MARKER_ICONS: Record<MarkerKind, ReactNode> = {
@@ -64,7 +65,7 @@ function TimelineRow({ item, callerName }: { item: TimelineItem; callerName: str
           <AgentOrb state="idle" size="sm" />
           <div className="msg__body">
             <span className="msg__who">{AGENT.name}</span>
-            <div className="msg__bubble">{item.text}</div>
+            <div className="msg__bubble">{item.final ? <RevealText text={item.text} /> : item.text}</div>
           </div>
         </div>
       ) : (
