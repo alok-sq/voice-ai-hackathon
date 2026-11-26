@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Voice agent console</title>
+  <link rel="icon" href="assets/logo.webp">
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar__brand">
+      <img src="assets/logo.webp" alt="SolarSquare" height="28">
+      <span class="topbar__divider"></span>
+      <span class="topbar__title">Voice agent console</span>
+    </div>
+    <div class="topbar__right">
+      <span class="chip" id="source-chip"><i data-lucide="flask-conical"></i><span id="source-label">Demo mode</span></span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- Left: call control -->
+    <section class="card call" aria-labelledby="call-h">
+      <h6 id="call-h">Call</h6>
+
+      <div class="status" id="status" data-state="idle">
+        <span class="status__dot"></span>
+        <span class="status__text" id="status-text">Ready</span>
+        <span class="status__time mono" id="timer">00:00</span>
+      </div>
+
+      <div class="field">
+        <label for="language">Language</label>
+        <select id="language">
+          <option value="hi">Hindi</option>
+          <option value="mr">Marathi</option>
+          <option value="ta">Tamil</option>
+          <option value="kn">Kannada</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <span class="label">Connect through</span>
+        <div class="seg" role="tablist" aria-label="Connection type">
+          <button class="seg__btn is-active" role="tab" data-mode="browser" aria-selected="true"><i data-lucide="mic"></i>Browser</button>
+          <button class="seg__btn" role="tab" data-mode="phone" aria-selected="false"><i data-lucide="phone"></i>Phone</button>
+        </div>
+      </div>
+
+      <div class="field" id="phone-field" hidden>
+        <label for="phone">Test number</label>
+        <input id="phone" type="tel" inputmode="tel" placeholder="+91 98XXX XXXXX" autocomplete="off">
+        <small>Use a team member's number. Never a real customer's.</small>
+      </div>
+
+      <button class="btn btn--primary btn--lg" id="call-btn"><i data-lucide="phone-call"></i><span id="call-btn-label">Start call</span></button>
+      <button class="btn btn--ghost" id="handoff-btn" disabled><i data-lucide="user-round-check"></i>Hand off to a human</button>
+
+      <dl class="metrics">
+        <div><dt>Last</dt><dd class="mono" id="m-last">—</dd></div>
+        <div><dt>Median</dt><dd class="mono" id="m-p50">—</dd></div>
+        <div><dt>Turns</dt><dd class="mono" id="m-turns">0</dd></div>
+      </dl>
+      <p class="hint" id="recording-note"><i data-lucide="circle-dot"></i>Calls are recorded. The agent says so at the start.</p>
+    </section>
+
+    <!-- Centre: transcript -->
+    <section class="card transcript" aria-labelledby="tr-h">
+      <div class="card__head">
+        <h6 id="tr-h">Live transcript</h6>
+        <span class="caption" id="state-label">Waiting for a call</span>
+      </div>
+      <ol class="steps" id="steps" aria-label="Call progress"></ol>
+      <div class="log" id="log" aria-live="polite">
+        <div class="empty" id="empty">
+          <i data-lucide="audio-lines"></i>
+          <p>Start a call to see the conversation here.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right: lead record -->
+    <section class="card lead" aria-labelledby="lead-h">
+      <div class="card__head">
+        <h6 id="lead-h">Lead record</h6>
+        <span class="caption mono" id="lead-count">0 / 13</span>
+      </div>
+      <div class="outcome" id="outcome" data-outcome="none">
+        <span class="outcome__label">Outcome</span>
+        <span class="pill" id="outcome-pill">Pending</span>
+      </div>
+      <div id="lead-groups"></div>
+      <button class="btn btn--ghost btn--sm" id="copy-json" disabled><i data-lucide="copy"></i>Copy record as JSON</button>
+    </section>
+  </main>
+
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
