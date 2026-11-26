@@ -65,6 +65,17 @@ def test_call_refuses_number_not_on_allowlist(client, monkeypatch):
     assert r.status_code == 403 and "allowlist" in r.json()["detail"]
 
 
+def test_end_503_when_unconfigured(client):
+    r = client.post("/api/end", json={"room": "call-0a1b2c3d"})
+    assert r.status_code == 503
+
+
+def test_end_rejects_rooms_the_console_did_not_create(client, monkeypatch):
+    configure(monkeypatch)
+    for room in ["some-other-room", "call-XYZ", "call-0a1b2c3d; drop", ""]:
+        assert client.post("/api/end", json={"room": room}).status_code == 400
+
+
 def test_call_allowlist_matches_despite_formatting(client, monkeypatch):
     # Passes validation and the allowlist; fails later only because no real LiveKit is reachable.
     configure(monkeypatch, SIP_OUTBOUND_TRUNK_ID="ST_1", TEST_NUMBER_ALLOWLIST="+91 98000 00001")

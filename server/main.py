@@ -5,9 +5,10 @@ Holds every secret. The browser only ever receives a short-lived room token.
   GET  /api/health   -> which settings are configured (names only, never values)
   POST /api/token    -> LiveKit room token for the browser (also dispatches the agent)
   POST /api/call     -> dial a test number through the SIP trunk into a new room
+  POST /api/end      -> close a call room for everyone (hangs up the phone leg)
 
 Run: uvicorn server.main:app --reload --port 8000   (from the repo root)
-LiveKit API names follow livekit-api; verify them against the version you pin.
+LiveKit API names verified against livekit-api 2.0.1 (pinned in requirements.txt).
 """
 from __future__ import annotations
 
@@ -30,6 +31,8 @@ except ImportError:
 REQUIRED_BASE = ["LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET"]
 REQUIRED_PHONE = ["SIP_OUTBOUND_TRUNK_ID"]
 PHONE_RE = re.compile(r"^\+?[0-9]{10,15}$")
+# Only rooms this backend creates (see _new_room) may be closed through /api/end.
+ROOM_RE = re.compile(r"^call-[0-9a-f]{8}$")
 LANGUAGES = {"hi", "mr", "ta", "kn", "en"}
 
 app = FastAPI(title="Voice agent console backend")
@@ -59,6 +62,10 @@ def _agent_name() -> str:
     return _env("AGENT_NAME") or "solarsquare-lrm"
 
 
+def _new_room() -> str:
+    return f"call-{secrets.token_hex(4)}"
+
+
 class TokenRequest(BaseModel):
     language: str = "hi"
     room: Optional[str] = None
@@ -68,6 +75,10 @@ class TokenRequest(BaseModel):
 class CallRequest(BaseModel):
     phone: str
     language: str = "hi"
+
+
+class EndRequest(BaseModel):
+    room: str
 
 
 @app.get("/api/health")
@@ -86,14 +97,15 @@ async def token(req: TokenRequest):
         raise HTTPException(400, detail="Unsupported language.")
     from livekit import api  # imported late so /api/health works without the package
 
-    room = req.room or f"call-{secrets.token_hex(4)}"
+    room = req.room or _new_room()
     identity = f"console-{secrets.token_hex(3)}"
     grants = api.VideoGrants(
         room_join=True,
         room=room,
         can_publish=not req.listenOnly,
         can_subscribe=True,
-        can_publish_data=False,
+        # The console sends commands (e.g. handoff_request) on the data topic `console-commands`.
+        can_publish_data=True,
     )
     jwt = api.AccessToken(_env("LIVEKIT_API_KEY"), _env("LIVEKIT_API_SECRET")).with_identity(identity).with_grants(grants)
     if not req.room:  # browser call: dispatch the agent into the new room with the chosen language
@@ -119,7 +131,7 @@ async def call(req: CallRequest):
         raise HTTPException(403, detail="That number is not on the test allowlist. Real customers are never called.")
     from livekit import api
 
-    room = f"call-{secrets.token_hex(4)}"
+    room = _new_room()
     async with api.LiveKitAPI(_env("LIVEKIT_URL"), _env("LIVEKIT_API_KEY"), _env("LIVEKIT_API_SECRET")) as lk:
         await lk.agent_dispatch.create_dispatch(
             api.CreateAgentDispatchRequest(agent_name=_agent_name(), room=room, metadata=req.language)
@@ -133,3 +145,16 @@ async def call(req: CallRequest):
             )
         )
     return {"room": room}
+
+
+@app.post("/api/end")
+async def end(req: EndRequest):
+    """Deleting the room disconnects everyone: the phone caller, the agent and any console."""
+    _require(REQUIRED_BASE)
+    if not ROOM_RE.match(req.room):
+        raise HTTPException(400, detail="Unknown room.")
+    from livekit import api
+
+    async with api.LiveKitAPI(_env("LIVEKIT_URL"), _env("LIVEKIT_API_KEY"), _env("LIVEKIT_API_SECRET")) as lk:
+        await lk.room.delete_room(api.DeleteRoomRequest(room=req.room))
+    return {"ok": True}
