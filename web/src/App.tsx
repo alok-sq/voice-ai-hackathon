@@ -19,6 +19,7 @@ import { useCall } from "./state/useCall";
 import { useHealth } from "./state/useHealth";
 import { useSessions } from "./state/useSessions";
 import { useSoundPreference, useStepSounds } from "./state/useStepSounds";
+import { useTheme } from "./state/useTheme";
 
 type Route = { name: "call" } | { name: "history" } | { name: "session"; id: string };
 
@@ -31,6 +32,7 @@ export function App() {
   const [introOpen, setIntroOpen] = useState(true);
   const [route, setRoute] = useState<Route>({ name: "call" });
   const [soundOn, setSoundOn] = useSoundPreference();
+  const [theme, setTheme] = useTheme();
   useStepSounds(view, soundOn);
 
   const [options, setOptions] = useState<CallOptions>({
@@ -93,6 +95,8 @@ export function App() {
           onTab={(tab) => setRoute(tab === "call" ? { name: "call" } : { name: "history" })}
           soundOn={soundOn}
           onToggleSound={() => setSoundOn(!soundOn)}
+          theme={theme}
+          onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
           onAbout={() => setIntroOpen(true)}
         >
           <CallActions

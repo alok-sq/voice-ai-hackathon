@@ -1,6 +1,7 @@
-import { AudioLines, FlaskConical, Info, Mic, PhoneCall, Volume2, VolumeX } from "lucide-react";
+import { AudioLines, FlaskConical, Info, Mic, Moon, PhoneCall, Sun, Volume2, VolumeX } from "lucide-react";
 import type { ReactNode } from "react";
 import type { SourceKind } from "../sources";
+import type { Theme } from "../state/theme";
 
 export type Tab = "call" | "history";
 
@@ -18,12 +19,15 @@ interface Props {
   onTab: (tab: Tab) => void;
   soundOn: boolean;
   onToggleSound: () => void;
+  theme: Theme;
+  onToggleTheme: () => void;
   onAbout: () => void;
   children: ReactNode;
 }
 
 /** Page title on the left, the call's actions on the right. Sticky, so Start/End is always in reach. */
-export function TopBar({ source, tab, historyCount, onTab, soundOn, onToggleSound, onAbout, children }: Props) {
+export function TopBar({ source, tab, historyCount, onTab, soundOn, onToggleSound, theme, onToggleTheme, onAbout, children }: Props) {
+  const dark = theme === "dark";
   const chip = CHIP[source];
   return (
     <header className="topbar">
@@ -48,6 +52,16 @@ export function TopBar({ source, tab, historyCount, onTab, soundOn, onToggleSoun
         <div className="tools">
           <button type="button" className="icon-btn" onClick={onAbout} aria-label="About Pari" title="About Pari">
             <Info size={18} />
+          </button>
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={onToggleTheme}
+            aria-pressed={dark}
+            aria-label="Dark mode"
+            title={dark ? "Dark mode on" : "Dark mode off"}
+          >
+            {dark ? <Sun size={18} /> : <Moon size={18} />}
           </button>
           <button
             type="button"

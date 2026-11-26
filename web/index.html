@@ -14,6 +14,10 @@
         document.documentElement.dataset.theme = dark ? "dark" : "light";
       })();
     </script>
+    <!-- The stylesheet arrives after first paint (in dev, through JS). Paint the night sky right away. -->
+    <style>
+      html[data-theme="dark"] { background: #060f2a; color-scheme: dark; }
+    </style>
     <link rel="icon" href="/assets/logo.webp" />
     <link rel="preload" href="/fonts/NotoSans-VariableFont_wdth_wght.ttf" as="font" type="font/ttf" crossorigin />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
