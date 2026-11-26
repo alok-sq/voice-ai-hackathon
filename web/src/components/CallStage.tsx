@@ -1,4 +1,4 @@
-import { CircleAlert, FlaskConical, MapPin, Mic, Phone, PhoneCall, PhoneOff, UserRoundCheck } from "lucide-react";
+import { AudioLines, CircleAlert, FlaskConical, MapPin, Mic, Phone, PhoneCall, PhoneOff, UserRoundCheck } from "lucide-react";
 import { useState } from "react";
 import { AGENT, type CallerProfile } from "../domain/agent";
 import { findScenario } from "../sources/demo/demoSource";
@@ -46,7 +46,10 @@ function sourceHint(health: Health | null, source: CallOptions["source"]): strin
   if (!health.livekit) return "This needs the LiveKit keys in .env. Check /api/health for which are missing.";
   if (source === "live" && !health.phone)
     return "Phone calls need SIP_OUTBOUND_TRUNK_ID and TEST_NUMBER_ALLOWLIST in .env. Check /api/health.";
-  if (source === "demo") return "Talk to the real agent through your microphone. Use headphones so it does not hear itself.";
+  if (source === "demo")
+    return "Talk to the cascaded agent (speech → text → language → voice). Use headphones so it does not hear itself.";
+  if (source === "demo_v2")
+    return "Speech-to-speech: Gemini hears you and speaks back in one hop. No Sarvam or Cartesia on this path. Use headphones.";
   return "The backend dials the test number below and this console listens in.";
 }
 
@@ -72,6 +75,7 @@ export function CallStage({ view, health, options, onOptionsChange, onStart, onE
   const active = view.phase === "connecting" || view.phase === "live";
   const scripted = options.source === "scripted";
   const phoneMode = options.source === "live";
+  const s2s = options.source === "demo_v2";
   const elapsed = useElapsed(view.startedAt, view.endedAt);
   const orb = orbState(view);
   const caller = callerFor(options);
@@ -143,7 +147,13 @@ export function CallStage({ view, health, options, onOptionsChange, onStart, onE
         <h6 className="setup__title">Call setup</h6>
         {active ? (
           <p className="setup__summary">
-            {scripted ? `Scripted · ${findScenario(options.scenarioId).title}` : phoneMode ? "Live · Phone call" : "Demo · Browser microphone"} ·{" "}
+            {scripted
+              ? `Scripted · ${findScenario(options.scenarioId).title}`
+              : phoneMode
+                ? "Live · Phone call"
+                : s2s
+                  ? "Demo v2 · Speech to speech"
+                  : "Demo · Cascaded"} ·{" "}
             {languageLabel(options.language)}
           </p>
         ) : (
@@ -156,7 +166,8 @@ export function CallStage({ view, health, options, onOptionsChange, onStart, onE
                 onChange={(source) => set({ source })}
                 options={[
                   { value: "demo", label: "Demo", icon: <Mic size={16} />, disabled: !health?.livekit },
-                  { value: "live", label: "Live call", icon: <Phone size={16} />, disabled: !health?.phone },
+                  { value: "demo_v2", label: "Demo v2", icon: <AudioLines size={16} />, disabled: !health?.livekit },
+                  { value: "live", label: "Live", icon: <Phone size={16} />, disabled: !health?.phone },
                   { value: "scripted", label: "Scripted", icon: <FlaskConical size={16} /> },
                 ]}
               />

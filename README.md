@@ -16,11 +16,12 @@ npm install
 npm run dev          # http://localhost:5173
 ```
 
-The console has three sources:
+The console has four sources:
 
 | Source | What it does | Needs |
 |---|---|---|
-| **Demo** | You talk to the real agent through your browser microphone. | Backend, agent worker, LiveKit keys |
+| **Demo** | You talk to the cascaded agent (Sarvam STT → Gemini → Cartesia TTS) through the browser microphone. | Backend, agent worker, LiveKit keys |
+| **Demo v2** | Speech-to-speech: Gemini native audio hears you and speaks back in one hop. | Same as Demo (`LLM_API_KEY` must be a Gemini key) |
 | **Live call** | The backend dials a team test number and the console listens in. | Same, plus `SIP_OUTBOUND_TRUNK_ID` and `TEST_NUMBER_ALLOWLIST` |
 | **Scripted** | Plays a pre-written Hindi call through the same screens. | Nothing (offline fallback) |
 
@@ -36,10 +37,10 @@ Checks: `npm test` (contract + call-state tests), `npm run typecheck`, `npm run 
    ```
 3. Start the agent worker (needs Python 3.10+; set up once with `uv venv --python 3.12 .venv-agent && uv pip install --python .venv-agent/bin/python -r src/requirements.txt`):
    ```bash
-   PYTHONPATH=src .venv-agent/bin/python -m agent.agent dev
+   PYTHONPATH=src .venv-agent/bin/python -m agent.agent start
    ```
-   It registers as `AGENT_NAME` and is dispatched into each call room by the backend. STT is Sarvam, LLM is Claude (`LLM_MODEL`), TTS is Cartesia Sonic. Each finished call writes `out/<room>.json`.
-4. Start the console (`npm run dev` in `web/`). Vite proxies `/api` to `http://localhost:8000` (override with `BACKEND_URL`). The console polls `GET /api/health`; **Demo** becomes selectable once LiveKit is configured and **Live call** once the SIP trunk is set, and the console lists any missing settings by name.
+   It registers as `AGENT_NAME` and is dispatched into each call room by the backend. Demo uses Sarvam STT, Gemini (`LLM_MODEL`) and Cartesia Sonic TTS. Demo v2 uses Gemini native audio (`S2S_MODEL`). Each finished call writes `out/<room>.json`.
+4. Start the console (`npm run dev` in `web/`). Vite proxies `/api` to `http://localhost:8000` (override with `BACKEND_URL`). The console polls `GET /api/health`; **Demo** and **Demo v2** become selectable once LiveKit is configured and **Live call** once the SIP trunk is set, and the console lists any missing settings by name.
 
 For the demo on stage, use `npm run build && npm run preview` (port 4173, same proxy).
 

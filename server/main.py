@@ -12,6 +12,7 @@ LiveKit API names verified against livekit-api 2.0.1 (pinned in requirements.txt
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import secrets
@@ -34,6 +35,7 @@ PHONE_RE = re.compile(r"^\+?[0-9]{10,15}$")
 # Only rooms this backend creates (see _new_room) may be closed through /api/end.
 ROOM_RE = re.compile(r"^call-[0-9a-f]{8}$")
 LANGUAGES = {"hi", "mr", "ta", "kn", "en"}
+PIPELINES = {"cascade", "s2s"}
 
 app = FastAPI(title="Voice agent console backend")
 app.add_middleware(
@@ -70,6 +72,13 @@ class TokenRequest(BaseModel):
     language: str = "hi"
     room: Optional[str] = None
     listenOnly: bool = False
+    pipeline: str = "cascade"
+
+
+def _dispatch_metadata(language: str, pipeline: str = "cascade") -> str:
+    if pipeline not in PIPELINES:
+        pipeline = "cascade"
+    return json.dumps({"language": language, "pipeline": pipeline})
 
 
 class CallRequest(BaseModel):
@@ -95,6 +104,8 @@ async def token(req: TokenRequest):
     _require(REQUIRED_BASE)
     if req.language not in LANGUAGES:
         raise HTTPException(400, detail="Unsupported language.")
+    if req.pipeline not in PIPELINES:
+        raise HTTPException(400, detail="Unsupported pipeline.")
     from livekit import api  # imported late so /api/health works without the package
 
     room = req.room or _new_room()
@@ -112,7 +123,11 @@ async def token(req: TokenRequest):
     if not req.room:  # browser call: dispatch the agent into the new room with the chosen language
         async with api.LiveKitAPI(_env("LIVEKIT_URL"), _env("LIVEKIT_API_KEY"), _env("LIVEKIT_API_SECRET")) as lk:
             await lk.agent_dispatch.create_dispatch(
-                api.CreateAgentDispatchRequest(agent_name=_agent_name(), room=room, metadata=req.language)
+                api.CreateAgentDispatchRequest(
+                    agent_name=_agent_name(),
+                    room=room,
+                    metadata=_dispatch_metadata(req.language, req.pipeline),
+                )
             )
     return {"url": _env("LIVEKIT_URL"), "token": jwt.to_jwt(), "room": room}
 
@@ -135,7 +150,11 @@ async def call(req: CallRequest):
     room = _new_room()
     async with api.LiveKitAPI(_env("LIVEKIT_URL"), _env("LIVEKIT_API_KEY"), _env("LIVEKIT_API_SECRET")) as lk:
         await lk.agent_dispatch.create_dispatch(
-            api.CreateAgentDispatchRequest(agent_name=_agent_name(), room=room, metadata=req.language)
+            api.CreateAgentDispatchRequest(
+                agent_name=_agent_name(),
+                room=room,
+                metadata=_dispatch_metadata(req.language, "cascade"),
+            )
         )
         await lk.sip.create_sip_participant(
             api.CreateSIPParticipantRequest(

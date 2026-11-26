@@ -11,8 +11,9 @@ from agent import normalise as nz  # noqa: E402
 from agent.events import EventPublisher  # noqa: E402
 from agent.flow import CallFlow, State  # noqa: E402
 from agent.metrics import CallMetrics  # noqa: E402
-from agent.models import Lead, Outcome, PropertyType  # noqa: E402
-from agent.prompts import build_system_prompt  # noqa: E402
+from agent.models import Lead, Outcome, PropertyType, RoofOwnership  # noqa: E402
+from agent.pipeline import parse_dispatch_metadata  # noqa: E402
+from agent.prompts import build_system_prompt, next_spoken_question  # noqa: E402
 from agent.tools import CallSession  # noqa: E402
 
 
@@ -86,6 +87,19 @@ def test_parse_property_type():
     assert nz.parse_property_type("dukaan hai") == PropertyType.commercial
 
 
+@pytest.mark.parametrize("text,expected", [
+    ("roof is common in society", RoofOwnership.shared),
+    ("chhat common hai", RoofOwnership.shared),
+    ("कॉमन है", RoofOwnership.shared),
+    ("society ki chhat hai", RoofOwnership.shared),
+    ("meri hai", RoofOwnership.owned),
+    ("common nahi, meri hai", RoofOwnership.owned),
+    ("society mein flat hai", None),
+])
+def test_parse_roof_ownership(text, expected):
+    assert nz.parse_roof_ownership(text) is expected
+
+
 def test_parse_discom():
     assert nz.parse_discom("Torrent Power") == "Torrent Power"
     assert nz.parse_discom("pata nahi") is None
@@ -126,6 +140,24 @@ def make_session(tmp_path):
     return CallSession("call-test", "hi", pub, out_dir=str(tmp_path)), pub
 
 
+def test_ingest_utterance_fills_current_step_without_tool_call(tmp_path):
+    cs, _ = make_session(tmp_path)
+    assert cs.flow.current.name == "IDENTITY"
+    assert cs.ingest_utterance("haan ji") == ["identity_confirmed"]
+    assert cs.lead.identity_confirmed is True
+
+
+def test_ingest_common_society_roof_saves_shared(tmp_path):
+    cs, _ = make_session(tmp_path)
+    cs.update_lead("identity_confirmed", "haan")
+    cs.update_lead("solar_interest", "haan")
+    cs.update_lead("property_type", "society")
+    assert cs.ingest_utterance("roof is common in society") == ["roof_ownership"]
+    assert cs.lead.roof_ownership == RoofOwnership.shared
+    q = next_spoken_question(cs.flow, "hi")
+    assert q and "कॉमन" not in q and "छत आपकी" not in q
+
+
 def test_update_lead_normalises_bill(tmp_path):
     cs, _ = make_session(tmp_path)
     cs.update_lead("monthly_bill", "3 hazaar")
@@ -135,7 +167,7 @@ def test_update_lead_normalises_bill(tmp_path):
 def test_update_lead_unparseable_reasks_and_leaves_field_empty(tmp_path):
     cs, _ = make_session(tmp_path)
     msg = cs.update_lead("monthly_bill", "pata nahi")
-    assert cs.lead.monthly_bill is None and "again" in msg
+    assert cs.lead.monthly_bill is None and "Nothing was saved" in msg
 
 
 def test_update_lead_advances_state_and_emits_events(tmp_path):
@@ -175,6 +207,37 @@ def test_events_match_contract_shapes(tmp_path):
 
 
 # ---- prompts ----
+def test_next_spoken_question_after_identity():
+    lead = Lead(identity_confirmed=True)
+    flow = CallFlow(lead)
+    q = next_spoken_question(flow, "hi")
+    assert q and "सोलर" in q
+
+
+def test_unanswered_question_is_deferred_then_dropped(tmp_path):
+    cs, _ = make_session(tmp_path)
+    cs.update_lead("identity_confirmed", "haan")
+    cs.update_lead("solar_interest", "haan")
+    cs.update_lead("property_type", "society")
+    assert cs.flow.pending_field() == "roof_ownership"
+    cs.apply_turn("hmm I don't remember")
+    assert cs.lead.roof_ownership is None
+    assert "roof_ownership" in cs.flow.deferred
+    assert cs.flow.pending_field() == "roof_access"
+    q = next_spoken_question(cs.flow, "hi")
+    assert q and "पहुँच" in q
+    while cs.flow.current != State.WRAP_UP:
+        pending = cs.flow.pending_field()
+        assert pending
+        cs.apply_turn("pata nahi")
+    assert "roof_ownership" in cs.flow.recap_fields()
+    recap = next_spoken_question(cs.flow, "hi")
+    assert recap and recap.startswith("एक बार पक्का")
+    cs.apply_turn("pata nahi")
+    assert "roof_ownership" in cs.flow.released
+    assert cs.lead.roof_ownership is None
+
+
 def test_prompt_includes_forbidden_claims_rule():
     assert "Never state or promise any price" in build_system_prompt(State.BILL, Lead())
 
@@ -203,3 +266,11 @@ def test_summary_cost_uses_configured_rates(monkeypatch):
     m = CallMetrics()
     m.tokens_in = 1_000_000
     assert m.summary()["est_cost_inr"] == 100
+
+
+def test_dispatch_metadata_defaults_to_cascade():
+    assert parse_dispatch_metadata("hi") == ("hi", "cascade")
+    assert parse_dispatch_metadata(None) == ("hi", "cascade")
+    assert parse_dispatch_metadata('{"language": "mr", "pipeline": "s2s"}') == ("mr", "s2s")
+    assert parse_dispatch_metadata("en:s2s") == ("en", "s2s")
+    assert parse_dispatch_metadata('{"language": "ta", "pipeline": "nope"}') == ("ta", "cascade")

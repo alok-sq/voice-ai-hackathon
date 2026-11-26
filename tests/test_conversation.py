@@ -466,7 +466,7 @@ def test_call_runtime_finalize_persists_the_conversation():
         async def delete_room():
             deleted.append(True)
 
-        runtime = CallRuntime(SimpleNamespace(delete_room=delete_room), SimpleNamespace(), cs, CallMetrics(), rec)
+        runtime = CallRuntime(SimpleNamespace(delete_room=delete_room), SimpleNamespace(), cs, CallMetrics(), recorder=rec)
         say(pub, "agent", "a1", "Namaste.")
         say(pub, "caller", "u1", "Haan ji.")
         await runtime.finalize("caller left")  # no outcome yet: the agent records "callback"

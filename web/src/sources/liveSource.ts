@@ -9,7 +9,7 @@ import {
 } from "livekit-client";
 import { COMMANDS_TOPIC, EVENTS_TOPIC, parseEvent, type ConsoleCommand } from "../contract/events";
 import { endRoom, getRoomToken, placePhoneCall } from "./api";
-import { throwIfAborted, type CallOptions, type CallSource, type ConnectMode } from "./types";
+import { throwIfAborted, type CallOptions, type CallSource, type ConnectMode, type Pipeline } from "./types";
 
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();
@@ -17,10 +17,13 @@ const encoder = new TextEncoder();
 /**
  * Joins the agent's LiveKit room and turns its data messages into CallEvents.
  *
- * Browser mode (Demo):  you talk to the agent through your mic.
- * Phone mode (Live):     the backend dials a test number; you join listen-only to watch.
+ * Browser mode (Demo / Demo v2): you talk to the agent through your mic.
+ * Phone mode (Live): the backend dials a test number; you join listen-only to watch.
+ * pipeline s2s is Demo v2 (Gemini native audio); cascade is STT → LLM → TTS.
  */
-export function createLiveSource(opts: Pick<CallOptions, "language" | "phone"> & { mode: ConnectMode }): CallSource {
+export function createLiveSource(
+  opts: Pick<CallOptions, "language" | "phone"> & { mode: ConnectMode; pipeline?: Pipeline },
+): CallSource {
   let room: Room | null = null;
   let roomName: string | null = null;
   let stopped = false;
@@ -40,7 +43,14 @@ export function createLiveSource(opts: Pick<CallOptions, "language" | "phone"> &
         roomName = (await placePhoneCall(opts.phone, opts.language, signal)).room;
         throwIfAborted(signal);
       }
-      const { url, token, room: joined } = await getRoomToken(opts.language, roomName, opts.mode === "phone", signal);
+      const pipeline: Pipeline = opts.mode === "phone" ? "cascade" : (opts.pipeline ?? "cascade");
+      const { url, token, room: joined } = await getRoomToken(
+        opts.language,
+        roomName,
+        opts.mode === "phone",
+        pipeline,
+        signal,
+      );
       roomName = joined;
       throwIfAborted(signal);
 

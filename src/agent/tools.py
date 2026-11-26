@@ -18,7 +18,10 @@ FIELDS = BOOL_FIELDS | {
     "property_type", "roof_ownership", "shadow_free_area", "monthly_bill", "discom", "city_or_pincode",
     "timeline", "meeting_slot",
 }
-REASK = "Could not understand that value. Ask the caller again in a simpler way. Nothing was saved."
+REASK = (
+    "Could not understand that value. Nothing was saved. Do not re-ask now — "
+    "the system will skip this field and confirm once at wrap-up, then drop it."
+)
 
 
 def _parse_bool(raw: str) -> Optional[bool]:
@@ -55,6 +58,8 @@ class CallSession:
         if field in ("monthly_bill", "shadow_free_area"):
             n = nz.parse_amount(raw)
             return n if n and n > 0 else None
+        if nz.is_unknown(raw):
+            return None
         if field == "discom":
             return nz.parse_discom(raw) or (raw if len(raw) >= 2 and not re.fullmatch(r"[\d\W]+", raw) else None)
         if field == "meeting_slot":
@@ -70,6 +75,7 @@ class CallSession:
         if value is None:
             return REASK
         setattr(self.lead, field, value)
+        self.flow.mark_filled(field)
         json_value = value.value if hasattr(value, "value") else value
         self.pub.emit("lead", field=field, value=json_value)
         before = self.flow.current
@@ -77,6 +83,49 @@ class CallSession:
         if after != before:
             self.pub.emit("state", state=after.value)
         return f"Saved {field}. Now at step {after.value}. Continue with that step's goal."
+
+    def ingest_utterance(self, text: str) -> list[str]:
+        """Fill the current step from the caller's words without waiting for the LLM to call a tool.
+
+        At most the open fields of the current state, in order. A failed parse on a typed
+        field skips to the next (so "MSEDCL" still saves discom when bill was asked first).
+        """
+        saved: list[str] = []
+        if self.result is not None or not (text or "").strip() or nz.is_unknown(text):
+            return saved
+        for field in self.flow.fields_open_for_ingest():
+            msg = self.update_lead(field, text)
+            if msg.startswith("Saved"):
+                saved.append(field)
+            elif field not in ("monthly_bill", "property_type", "roof_ownership", "shadow_free_area"):
+                break
+        return saved
+
+    def apply_turn(self, text: str, *, allow_defer: bool = True) -> list[str]:
+        """Ingest, then sideline the unanswered question so the call cannot loop on it."""
+        pending = self.flow.pending_field()
+        before = self.flow.current
+        saved = self.ingest_utterance(text)
+        if not allow_defer or not pending or getattr(self.lead, pending) is not None:
+            return saved
+        if self.flow.current == State.WRAP_UP or pending in self.flow.deferred:
+            self.flow.release(pending)
+            self.pub.emit("system", text=f"Left {pending} blank.")
+        else:
+            self.flow.defer(pending)
+            self.pub.emit("system", text=f"Skipping {pending} for now; will confirm once at wrap-up.")
+        if self.flow.current != before:
+            self.pub.emit("state", state=self.flow.current.value)
+        return saved
+
+    def default_outcome(self) -> str:
+        if self.lead.solar_interest is False:
+            return "not_qualified"
+        if self.lead.identity_confirmed is False:
+            return "wrong_number"
+        if self.lead.meeting_slot:
+            return "qualified"
+        return "callback"
 
     # ---- ending ----
 
