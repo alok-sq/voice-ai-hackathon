@@ -7,7 +7,10 @@ import {
   momentCounts,
   orbState,
   recordingDisclosed,
+  stepCells,
+  stepCues,
   stepStatuses,
+  stepsDone,
   type CallView,
 } from "./callReducer";
 
@@ -198,4 +201,64 @@ describe("metrics", () => {
     expect(medianReplyMs(even.turns)).toBe(650);
     expect(medianReplyMs([])).toBeNull();
   });
+});
+
+describe("stepsDone", () => {
+  it("counts only fully captured steps", () => {
+    const steps = [{ status: "done" }, { status: "partial" }, { status: "current" }, { status: "done" }, { status: "skipped" }] as const;
+    expect(stepsDone([...steps])).toBe(2);
+  });
+  it("is zero before a call", () => expect(stepsDone(stepStatuses(initialCallView))).toBe(0));
+});
+
+describe("failed steps", () => {
+  it("marks a step failed when an answer rules the lead out, even while it is current", () => {
+    const v = apply(live(), { type: "state", state: "IDENTITY" }, { type: "lead", field: "identity_confirmed", value: false });
+    expect(statusOf(v, "IDENTITY")).toBe("failed");
+  });
+  it("marks property failed for a rented roof", () => {
+    const v = apply(live(), { type: "lead", field: "roof_ownership", value: "rented" });
+    expect(statusOf(v, "PROPERTY")).toBe("failed");
+  });
+  it("keeps a positive answer as done", () => {
+    const v = apply(live(), { type: "lead", field: "identity_confirmed", value: true });
+    expect(statusOf(v, "IDENTITY")).toBe("done");
+  });
+});
+
+describe("stepCues", () => {
+  it("counts a step that becomes done as passed", () =>
+    expect(stepCues(["current", "pending"], ["done", "current"])).toEqual({ passed: 1, failed: 0 }));
+  it("counts a step that becomes failed", () =>
+    expect(stepCues(["current"], ["failed"])).toEqual({ passed: 0, failed: 1 }));
+  it("counts moving on from a step left incomplete as failed", () => {
+    expect(stepCues(["current"], ["partial"])).toEqual({ passed: 0, failed: 1 });
+    expect(stepCues(["current"], ["pending"])).toEqual({ passed: 0, failed: 1 });
+  });
+  it("does not count an answer given early for a later step", () =>
+    expect(stepCues(["pending"], ["partial"])).toEqual({ passed: 0, failed: 0 }));
+  it("counts steps never reached when the call ends", () =>
+    expect(stepCues(["done", "current", "pending"], ["done", "skipped", "skipped"])).toEqual({ passed: 0, failed: 2 }));
+  it("stays silent when a new call resets the steps", () =>
+    expect(stepCues(["done", "failed", "skipped"], ["current", "pending", "pending"])).toEqual({ passed: 0, failed: 0 }));
+  it("stays silent when nothing changed", () =>
+    expect(stepCues(["done", "current"], ["done", "current"])).toEqual({ passed: 0, failed: 0 }));
+});
+
+describe("a step passes on the answer", () => {
+  it("marks the current step done as soon as its fields are captured", () => {
+    const v = apply(live(), { type: "state", state: "IDENTITY" }, { type: "lead", field: "identity_confirmed", value: true });
+    expect(statusOf(v, "IDENTITY")).toBe("done");
+  });
+  it("keeps a current step current while it is only partly answered", () => {
+    const v = apply(live(), { type: "state", state: "PROPERTY" }, { type: "lead", field: "property_type", value: "independent_house" });
+    expect(statusOf(v, "PROPERTY")).toBe("current");
+  });
+});
+
+describe("stepCells", () => {
+  it("gives the solar panel one cell per step", () =>
+    expect(stepCells(["done", "failed", "partial", "current", "pending", "skipped", "done", "pending"])).toEqual([
+      "full", "failed", "partial", "empty", "empty", "empty", "full", "empty",
+    ]));
 });

@@ -7,7 +7,7 @@
  */
 import type { CallEvent, FlowState, GuardrailKind, Lead, Outcome, Role } from "../contract/events";
 import { FLOW_STATES } from "../contract/events";
-import { STEPS, isCaptured, type Step } from "../domain/lead";
+import { STEPS, isBlocking, isCaptured, type CellState, type Step } from "../domain/lead";
 
 export type Phase = "idle" | "connecting" | "live" | "ended" | "error";
 export type MarkerKind = "interrupted" | "guardrail" | "reprompt" | "handoff";
@@ -219,7 +219,7 @@ function finish(view: CallView, reason: string, at: number): CallView {
 
 /* ---------- Derived views ---------- */
 
-export type StepStatus = "done" | "partial" | "current" | "pending" | "skipped";
+export type StepStatus = "done" | "failed" | "partial" | "current" | "pending" | "skipped";
 
 /**
  * Progress per step, derived from what was captured rather than from the
@@ -231,11 +231,18 @@ export function stepStatuses(view: CallView): { state: Step; label: string; stat
 
   return STEPS.map(({ state, label, fields }) => {
     let status: StepStatus;
-    if (!over && view.flowState === state) {
+    const answered = fields.length > 0 && fields.every((f) => isCaptured(view.lead, f));
+    // A step is decided the moment the caller answers, not when Pari moves on, so the
+    // tick, the chime and the panel cell all happen together on the answer.
+    if (fields.some((f) => isCaptured(view.lead, f) && isBlocking(f, view.lead[f]))) {
+      status = "failed";
+    } else if (answered) {
+      status = "done";
+    } else if (!over && view.flowState === state) {
       status = "current";
     } else if (fields.length > 0) {
       const n = fields.filter((f) => isCaptured(view.lead, f)).length;
-      status = n === fields.length ? "done" : n > 0 ? "partial" : over ? "skipped" : "pending";
+      status = n > 0 ? "partial" : over ? "skipped" : "pending";
     } else {
       const visited = view.visited.includes(state);
       const movedOn = currentIdx > FLOW_STATES.indexOf(state);
@@ -244,6 +251,32 @@ export function stepStatuses(view: CallView): { state: Step; label: string; stat
     return { state, label, status };
   });
 }
+
+/**
+ * What the progress sounds should say about one update: how many steps just
+ * passed, and how many just failed (ruled out, left incomplete when the call
+ * moved on, or never reached when it ended). Resets for a new call are silent.
+ */
+export function stepCues(prev: StepStatus[], next: StepStatus[]): { passed: number; failed: number } {
+  let passed = 0;
+  let failed = 0;
+  next.forEach((to, i) => {
+    const from = prev[i];
+    if (from === undefined || from === to) return;
+    if (to === "done") passed++;
+    else if (to === "failed") failed++;
+    else if (from === "current" && (to === "partial" || to === "pending" || to === "skipped")) failed++;
+    else if (from === "pending" && to === "skipped") failed++;
+  });
+  return { passed, failed };
+}
+
+/** The solar panel: one cell per step, lit when the step passes. Same source as the progress strip and the chimes. */
+export const stepCells = (statuses: StepStatus[]): CellState[] =>
+  statuses.map((s) => (s === "done" ? "full" : s === "failed" ? "failed" : s === "partial" ? "partial" : "empty"));
+
+/** Steps fully captured, for the "N of 8 done" counter. */
+export const stepsDone = (steps: { status: StepStatus }[]) => steps.filter((s) => s.status === "done").length;
 
 export function currentStepLabel(view: CallView): string {
   if (view.phase === "idle") return "Waiting for a call";

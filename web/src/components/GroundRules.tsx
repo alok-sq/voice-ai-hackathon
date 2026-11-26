@@ -24,10 +24,10 @@ export function GroundRules({ view }: { view: CallView }) {
 
   return (
     <div className="rules">
-      <h6 className="rules__title">
-        <ShieldCheck size={16} />
+      <h3 className="side-title rules__title">
+        <ShieldCheck size={14} />
         Ground rules
-      </h6>
+      </h3>
       <ul className="rules__list">
         {rules.map((r) => {
           const Icon: LucideIcon = r.met ? CircleCheck : CircleDashed;

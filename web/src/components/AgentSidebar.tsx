@@ -1,42 +1,25 @@
-import { AudioLines, CircleAlert, FlaskConical, MapPin, Mic, Phone, PhoneCall, PhoneOff, UserRoundCheck } from "lucide-react";
-import { useState } from "react";
-import { AGENT, type CallerProfile } from "../domain/agent";
-import { findScenario } from "../sources/demo/demoSource";
-import { SCENARIOS, expectedOutcome } from "../sources/demo/scenarios";
+import { AudioLines, CircleAlert, FlaskConical, Languages, MapPin, Mic, Phone } from "lucide-react";
+import { AGENT } from "../domain/agent";
+import { LANGUAGES, languageLabel } from "../domain/language";
 import { OUTCOME_LABELS } from "../domain/lead";
 import type { Health } from "../sources/api";
+import { findScenario } from "../sources/demo/demoSource";
+import { SCENARIOS, expectedOutcome } from "../sources/demo/scenarios";
 import type { CallOptions, Language } from "../sources";
+import { callerFor } from "../state/caller";
 import { orbState, type CallView } from "../state/callReducer";
 import { useElapsed } from "../state/useElapsed";
 import { AgentOrb, orbLabel } from "./AgentOrb";
 import { GroundRules } from "./GroundRules";
 import { Segmented } from "./Segmented";
 
-const LANGUAGES: { value: Language; label: string }[] = [
-  { value: "hi", label: "Hindi" },
-  { value: "mr", label: "Marathi" },
-  { value: "ta", label: "Tamil" },
-  { value: "kn", label: "Kannada" },
-  { value: "en", label: "English" },
-];
-const languageLabel = (l: Language) => LANGUAGES.find((x) => x.value === l)?.label ?? l;
-
-// Matches the backend's check after stripping spaces, brackets and dashes.
-const PHONE_RE = /^\+?[0-9]{10,15}$/;
-const normalisePhone = (p: string) => p.replace(/[\s()-]/g, "");
-const maskPhone = (p: string) => {
-  const d = normalisePhone(p);
-  return d.length < 6 ? p : `${d.slice(0, 5)}•••${d.slice(-3)}`;
-};
 
 interface Props {
   view: CallView;
   health: Health | null;
   options: CallOptions;
   onOptionsChange: (next: CallOptions) => void;
-  onStart: () => void;
-  onEnd: () => void;
-  onHandoff: () => void;
+  phoneError: string | null;
 }
 
 function sourceHint(health: Health | null, source: CallOptions["source"]): string | null {
@@ -63,15 +46,8 @@ function ExpectedOutcome({ scenarioId }: { scenarioId: string }) {
   );
 }
 
-function callerFor(options: CallOptions): CallerProfile {
-  if (options.source === "scripted") return findScenario(options.scenarioId).caller;
-  if (options.source === "live")
-    return { name: "Test caller", phone: options.phone ? maskPhone(options.phone) : "Number not set", city: "Phone line", source: "Team test number" };
-  return { name: "You", phone: "Browser microphone", city: "This device", source: "Live test" };
-}
-
-export function CallStage({ view, health, options, onOptionsChange, onStart, onEnd, onHandoff }: Props) {
-  const [phoneError, setPhoneError] = useState<string | null>(null);
+/** Pari, the caller and how the call is set up. During a call the setup gives way to the ground rules. */
+export function AgentSidebar({ view, health, options, onOptionsChange, phoneError }: Props) {
   const active = view.phase === "connecting" || view.phase === "live";
   const scripted = options.source === "scripted";
   const phoneMode = options.source === "live";
@@ -82,56 +58,43 @@ export function CallStage({ view, health, options, onOptionsChange, onStart, onE
   const hint = sourceHint(health, options.source);
   const set = (patch: Partial<CallOptions>) => onOptionsChange({ ...options, ...patch });
 
-  const handleCall = () => {
-    if (active) return onEnd();
-    if (phoneMode && !PHONE_RE.test(normalisePhone(options.phone))) {
-      setPhoneError("Enter a 10 to 15 digit number, with the country code.");
-      return;
-    }
-    setPhoneError(null);
-    onStart();
-  };
-
   return (
-    <section className="card stage" aria-labelledby="stage-h">
-      <div className="stage__presence">
+    <aside className="sidebar" aria-label="Agent and call setup">
+      <div className="sidebar__brand">
+        <img src="/assets/logo.webp" alt="SolarSquare" height={24} />
+        <span className="sidebar__product">Voice agent</span>
+      </div>
+
+      <section className="presence" aria-labelledby="agent-h">
         <AgentOrb state={orb} />
-        <h2 id="stage-h" className="stage__name">
+        <h2 id="agent-h" className="presence__name">
           {AGENT.name}
         </h2>
-        <p className="stage__role">{AGENT.role}</p>
-        <div className="stage__status" data-state={view.phase} role="status">
-          <span className="stage__dot" />
+        <p className="presence__role">{AGENT.role}</p>
+        <div className="status" data-state={view.phase} role="status">
+          <span className="status__dot" />
           <span>{orbLabel(orb)}</span>
-          <span className="stage__sep" aria-hidden="true">·</span>
+          <span className="status__sep" aria-hidden="true">·</span>
           <span className="mono">{elapsed}</span>
         </div>
-      </div>
+      </section>
 
-      <div className="caller" aria-label="Caller">
-        <span className="caller__avatar" aria-hidden="true">
-          {caller.name.replace(/^(Mr\.|Ms\.|Mrs\.)\s*/, "").charAt(0)}
-        </span>
-        <div className="caller__body">
-          <span className="caller__name">{caller.name}</span>
-          <span className="caller__meta">{caller.phone}</span>
+      <section className="side-section" aria-labelledby="caller-h">
+        <h3 id="caller-h" className="side-title">Caller</h3>
+        <div className="caller">
+          <span className="caller__avatar" aria-hidden="true">
+            {caller.name.replace(/^(Mr\.|Ms\.|Mrs\.)\s*/, "").charAt(0)}
+          </span>
+          <div className="caller__body">
+            <span className="caller__name">{caller.name}</span>
+            <span className="caller__meta">{caller.phone}</span>
+          </div>
+          <span className="caller__place">
+            <MapPin size={14} />
+            {caller.city}
+          </span>
         </div>
-        <span className="caller__place">
-          <MapPin size={16} />
-          {caller.city}
-        </span>
-      </div>
-
-      <div className="stage__actions">
-        <button type="button" className="btn btn--primary btn--xl" data-live={active} onClick={handleCall}>
-          {active ? <PhoneOff size={20} /> : <PhoneCall size={20} />}
-          {active ? "End call" : "Start call"}
-        </button>
-        <button type="button" className="btn btn--ghost" disabled={view.phase !== "live" || !!view.handoff} onClick={onHandoff}>
-          <UserRoundCheck size={20} />
-          Hand off to a person
-        </button>
-      </div>
+      </section>
 
       {view.phase === "error" && view.error && (
         <p className="alert" role="alert">
@@ -143,8 +106,8 @@ export function CallStage({ view, health, options, onOptionsChange, onStart, onE
       {/* Stays up after the call so the final state of each rule can be read. */}
       {view.phase !== "idle" && <GroundRules view={view} />}
 
-      <div className="setup">
-        <h6 className="setup__title">Call setup</h6>
+      <section className="side-section setup" aria-labelledby="setup-h">
+        <h3 id="setup-h" className="side-title">Call setup</h3>
         {active ? (
           <p className="setup__summary">
             {scripted
@@ -221,7 +184,15 @@ export function CallStage({ view, health, options, onOptionsChange, onStart, onE
             )}
           </>
         )}
+      </section>
+
+      <div className="note">
+        <Languages size={16} />
+        <p className="note__title">Speaks the caller's language</p>
+        <p className="note__body">
+          Hindi, Marathi, Tamil, Kannada and English. {AGENT.name} never promises prices, savings or subsidy amounts.
+        </p>
       </div>
-    </section>
+    </aside>
   );
 }

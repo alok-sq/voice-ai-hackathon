@@ -99,3 +99,30 @@ export function formatLeadValue<F extends LeadField>(field: F, value: LeadValues
 }
 
 export const isCaptured = (lead: Lead, field: LeadField) => lead[field] !== undefined;
+
+/** How many lead fields have an answer. `false` is an answer, so it counts. */
+export const capturedCount = (lead: Lead) =>
+  LEAD_GROUPS.reduce((n, g) => n + g.fields.filter(({ field }) => isCaptured(lead, field)).length, 0);
+
+/**
+ * Answers that rule a lead out: the wrong person, no interest, or a roof
+ * the caller cannot put panels on. Preferences (no loan, no subsidy) are not failures.
+ */
+export function isBlocking(field: LeadField, value: unknown): boolean {
+  switch (field) {
+    case "identity_confirmed":
+    case "solar_interest":
+    case "roof_access":
+      return value === false;
+    case "roof_ownership":
+      return value === "rented";
+    default:
+      return false;
+  }
+}
+
+export type CellState = "empty" | "partial" | "full" | "failed";
+
+/** Indexes of cells that have just become full, to twinkle once. */
+export const newlyFull = (prev: CellState[], next: CellState[]): number[] =>
+  next.flatMap((s, i) => (s === "full" && prev[i] !== "full" ? [i] : []));
