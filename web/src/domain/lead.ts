@@ -99,3 +99,7 @@ export function formatLeadValue<F extends LeadField>(field: F, value: LeadValues
 }
 
 export const isCaptured = (lead: Lead, field: LeadField) => lead[field] !== undefined;
+
+/** How many lead fields have an answer. `false` is an answer, so it counts. */
+export const capturedCount = (lead: Lead) =>
+  LEAD_GROUPS.reduce((n, g) => n + g.fields.filter(({ field }) => isCaptured(lead, field)).length, 0);

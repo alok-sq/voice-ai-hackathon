@@ -2,6 +2,7 @@ import { CircleCheck } from "lucide-react";
 import { useState } from "react";
 import { medianReplyMs, momentCounts, type CallView, type Turn } from "../state/callReducer";
 import { useCountUp } from "../state/motion";
+import { SectionHead } from "./SectionHead";
 
 /** Reply-time target from the brief: no awkward pause, under a second. */
 const TARGET_MS = 1000;
@@ -17,11 +18,8 @@ export function PerformanceBand({ view }: { view: CallView }) {
   const handled = useCountUp(moments.interrupted + moments.guardrail + moments.reprompt) ?? 0;
 
   return (
-    <section className="card perf" aria-labelledby="perf-h">
-      <div className="perf__head">
-        <h6 id="perf-h">Call performance</h6>
-        <span className="caption">What the judges score, measured on this call</span>
-      </div>
+    <section className="perf" aria-labelledby="perf-h">
+      <SectionHead id="perf-h" title="Call performance" count="measured on this call" aside={<span className="caption">Speed, cost and robustness</span>} />
       <div className="perf__grid">
         <Tile
           label="Median reply"

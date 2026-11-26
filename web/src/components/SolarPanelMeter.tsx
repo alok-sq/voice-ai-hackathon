@@ -1,5 +1,5 @@
 import type { Lead } from "../contract/events";
-import { LEAD_FIELD_COUNT, LEAD_GROUPS } from "../domain/lead";
+import { LEAD_FIELD_COUNT, LEAD_GROUPS, capturedCount } from "../domain/lead";
 
 type CellState = "empty" | "partial" | "full";
 
@@ -14,7 +14,7 @@ export function SolarPanelMeter({ lead }: { lead: Lead }) {
     const state: CellState = n === 0 ? "empty" : n === g.fields.length ? "full" : "partial";
     return { title: g.title, state };
   });
-  const captured = LEAD_GROUPS.flatMap((g) => g.fields).filter(({ field }) => lead[field] !== undefined).length;
+  const captured = capturedCount(lead);
   const full = captured === LEAD_FIELD_COUNT;
 
   return (

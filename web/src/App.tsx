@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { CallStage } from "./components/CallStage";
+import { AgentSidebar } from "./components/AgentSidebar";
+import { CallActions } from "./components/CallActions";
+import { CallProgress } from "./components/CallProgress";
 import { Conversation } from "./components/Conversation";
 import { LeadCard } from "./components/LeadCard";
-import { PageHeader } from "./components/PageHeader";
 import { PerformanceBand } from "./components/PerformanceBand";
 import { TopBar } from "./components/TopBar";
 import { findScenario } from "./sources/demo/demoSource";
@@ -15,6 +16,7 @@ export function App() {
   const { view, start, end, requestHandoff } = useCall();
   const active = view.phase === "connecting" || view.phase === "live";
   const health = useHealth(active);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
 
   const [options, setOptions] = useState<CallOptions>({
     source: "demo",
@@ -35,28 +37,26 @@ export function App() {
   const callerName = options.source === "demo" ? findScenario(options.scenarioId).caller.name : "Caller";
 
   return (
-    <div className="page">
-      <div className="sunrise" aria-hidden="true" />
-      <TopBar source={options.source} />
-      <PageHeader />
-      <main className="layout">
-        <CallStage
-          view={view}
-          health={health}
-          options={options}
-          onOptionsChange={setOptions}
-          onStart={() => void start(options)}
-          onEnd={() => end()}
-          onHandoff={() => void requestHandoff()}
-        />
-        <Conversation view={view} callerName={callerName} />
-        <LeadCard view={view} />
-        <PerformanceBand view={view} />
-      </main>
-      <footer className="footer">
-        <span>SolarSquare Voice AI Hackathon · Lead qualification</span>
-        <span>Calls are recorded. Pari never promises prices, savings or subsidy amounts.</span>
-      </footer>
+    <div className="shell">
+      <AgentSidebar view={view} health={health} options={options} onOptionsChange={setOptions} phoneError={phoneError} />
+      <div className="main">
+        <TopBar source={options.source}>
+          <CallActions
+            view={view}
+            options={options}
+            onStart={() => void start(options)}
+            onEnd={() => end()}
+            onHandoff={() => void requestHandoff()}
+            onPhoneError={setPhoneError}
+          />
+        </TopBar>
+        <main className="work">
+          <CallProgress view={view} />
+          <Conversation view={view} callerName={callerName} />
+          <LeadCard view={view} />
+          <PerformanceBand view={view} />
+        </main>
+      </div>
     </div>
   );
 }

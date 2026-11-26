@@ -245,6 +245,9 @@ export function stepStatuses(view: CallView): { state: Step; label: string; stat
   });
 }
 
+/** Steps fully captured, for the "N of 8 done" counter. */
+export const stepsDone = (steps: { status: StepStatus }[]) => steps.filter((s) => s.status === "done").length;
+
 export function currentStepLabel(view: CallView): string {
   if (view.phase === "idle") return "Waiting for a call";
   if (view.flowState === "DONE" || view.phase === "ended") return "Call complete";

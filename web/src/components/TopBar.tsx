@@ -1,19 +1,21 @@
 import { FlaskConical, Radio } from "lucide-react";
+import type { ReactNode } from "react";
 import type { SourceKind } from "../sources";
 
-export function TopBar({ source }: { source: SourceKind }) {
+/** Page title on the left, the call's actions on the right. Sticky, so Start/End is always in reach. */
+export function TopBar({ source, children }: { source: SourceKind; children: ReactNode }) {
   const live = source === "live";
   return (
     <header className="topbar">
-      <div className="topbar__brand">
-        <img src="/assets/logo.webp" alt="SolarSquare" height={28} />
-        <span className="topbar__divider" />
-        <span className="topbar__title">Voice agent console</span>
+      <div className="topbar__title">
+        <img className="topbar__logo" src="/assets/logo.webp" alt="SolarSquare" height={22} />
+        <h1 className="topbar__h1">Lead qualification call</h1>
+        <span className="chip" data-source={source}>
+          {live ? <Radio size={14} /> : <FlaskConical size={14} />}
+          {live ? "Live agent" : "Demo mode"}
+        </span>
       </div>
-      <span className="chip" data-source={source}>
-        {live ? <Radio size={16} /> : <FlaskConical size={16} />}
-        {live ? "Live agent" : "Demo mode"}
-      </span>
+      {children}
     </header>
   );
 }

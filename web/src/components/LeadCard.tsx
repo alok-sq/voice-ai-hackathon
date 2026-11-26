@@ -17,8 +17,9 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { LeadField, LeadValues, Outcome } from "../contract/events";
-import { LEAD_GROUPS, OUTCOME_LABELS, formatLeadValue } from "../domain/lead";
+import { LEAD_FIELD_COUNT, LEAD_GROUPS, OUTCOME_LABELS, capturedCount, formatLeadValue } from "../domain/lead";
 import { leadRecord, type CallView } from "../state/callReducer";
+import { SectionHead } from "./SectionHead";
 import { SolarPanelMeter } from "./SolarPanelMeter";
 
 const GROUP_ICONS: Record<string, LucideIcon> = {
@@ -43,13 +44,11 @@ export function LeadCard({ view }: { view: CallView }) {
   const OutcomeIcon = outcome ? OUTCOME_ICONS[outcome.outcome] : CircleDashed;
 
   return (
-    <section className="card lead" aria-labelledby="lead-h">
+    <section className="surface lead" aria-labelledby="lead-h">
+      <SectionHead id="lead-h" title="Lead record" count={`${capturedCount(view.lead)} of ${LEAD_FIELD_COUNT}`} />
       <div className="lead__top">
-        <div>
-          <h6 id="lead-h">Lead record</h6>
-          <p className="lead__sub">Captured live from the call</p>
-        </div>
         <SolarPanelMeter lead={view.lead} />
+        <p className="lead__sub">Captured live from the call. Each panel cell lights up as a group of answers comes in.</p>
       </div>
 
       {/* Re-keyed on the outcome so its reveal plays each time it changes. */}
@@ -70,10 +69,10 @@ export function LeadCard({ view }: { view: CallView }) {
           const Icon = GROUP_ICONS[group.title] ?? House;
           return (
             <div className="group" key={group.title}>
-              <h6 className="group__title">
+              <h3 className="group__title">
                 <Icon size={16} />
                 {group.title}
-              </h6>
+              </h3>
               {group.fields.map(({ field, label }) => (
                 <LeadRow key={field} field={field} label={label} value={view.lead[field]} />
               ))}

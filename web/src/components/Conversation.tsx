@@ -1,11 +1,11 @@
 import { Hand, ShieldCheck, Timer, UserRoundCheck } from "lucide-react";
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { AGENT } from "../domain/agent";
-import { currentStepLabel, stepStatuses, type CallView, type MarkerKind, type TimelineItem } from "../state/callReducer";
+import type { CallView, MarkerKind, TimelineItem } from "../state/callReducer";
 import { AgentOrb } from "./AgentOrb";
-import { ProgressTrack } from "./ProgressTrack";
 import { RevealText } from "./RevealText";
 import { RooftopIllustration } from "./RooftopIllustration";
+import { SectionHead } from "./SectionHead";
 
 const MARKER_ICONS: Record<MarkerKind, ReactNode> = {
   interrupted: <Hand size={16} />,
@@ -34,13 +34,8 @@ export function Conversation({ view, callerName }: { view: CallView; callerName:
   };
 
   return (
-    <section className="card convo" aria-labelledby="convo-h">
-      <div className="card__head">
-        <h6 id="convo-h">Conversation</h6>
-        <span className="caption">{currentStepLabel(view)}</span>
-      </div>
-
-      <ProgressTrack steps={stepStatuses(view)} />
+    <section className="surface convo" aria-labelledby="convo-h">
+      <SectionHead id="convo-h" title="Conversation" count={view.phase === "idle" ? "no call yet" : `with ${callerName}`} />
 
       <div className="log" ref={logRef} onScroll={onScroll} role="log" aria-live="polite" aria-relevant="additions">
         {view.timeline.length === 0 ? (

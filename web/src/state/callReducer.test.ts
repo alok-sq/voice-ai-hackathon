@@ -8,6 +8,7 @@ import {
   orbState,
   recordingDisclosed,
   stepStatuses,
+  stepsDone,
   type CallView,
 } from "./callReducer";
 
@@ -198,4 +199,12 @@ describe("metrics", () => {
     expect(medianReplyMs(even.turns)).toBe(650);
     expect(medianReplyMs([])).toBeNull();
   });
+});
+
+describe("stepsDone", () => {
+  it("counts only fully captured steps", () => {
+    const steps = [{ status: "done" }, { status: "partial" }, { status: "current" }, { status: "done" }, { status: "skipped" }] as const;
+    expect(stepsDone([...steps])).toBe(2);
+  });
+  it("is zero before a call", () => expect(stepsDone(stepStatuses(initialCallView))).toBe(0));
 });
