@@ -3,102 +3,182 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Voice agent console</title>
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#FBFAF7">
+  <meta name="description" content="Run and monitor SolarSquare lead-qualification voice calls.">
+  <title>Voice agent console · SolarSquare</title>
   <link rel="icon" href="assets/logo.webp">
   <link rel="stylesheet" href="tokens.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <a class="skip" href="#transcript">Skip to transcript</a>
+
   <header class="topbar">
     <div class="topbar__brand">
       <img src="assets/logo.webp" alt="SolarSquare" height="28">
-      <span class="topbar__divider"></span>
-      <span class="topbar__title">Voice agent console</span>
+      <span class="topbar__divider" aria-hidden="true"></span>
+      <div class="topbar__title">
+        <span class="topbar__name">Voice agent console</span>
+        <span class="topbar__sub">Lead qualification</span>
+      </div>
     </div>
     <div class="topbar__right">
+      <span class="chip chip--health" id="health-chip" hidden><i data-lucide="activity"></i><span id="health-label">Checking backend</span></span>
       <span class="chip" id="source-chip"><i data-lucide="flask-conical"></i><span id="source-label">Demo mode</span></span>
     </div>
   </header>
 
   <main class="layout">
-    <!-- Left: call control -->
-    <section class="card call" aria-labelledby="call-h">
-      <h6 id="call-h">Call</h6>
-
-      <div class="status" id="status" data-state="idle">
-        <span class="status__dot"></span>
-        <span class="status__text" id="status-text">Ready</span>
-        <span class="status__time mono" id="timer">00:00</span>
-      </div>
-
-      <div class="field">
-        <label for="language">Language</label>
-        <select id="language">
-          <option value="hi">Hindi</option>
-          <option value="mr">Marathi</option>
-          <option value="ta">Tamil</option>
-          <option value="kn">Kannada</option>
-          <option value="en">English</option>
-        </select>
-      </div>
-
-      <div class="field">
-        <span class="label">Connect through</span>
-        <div class="seg" role="tablist" aria-label="Connection type">
-          <button class="seg__btn is-active" role="tab" data-mode="browser" aria-selected="true"><i data-lucide="mic"></i>Browser</button>
-          <button class="seg__btn" role="tab" data-mode="phone" aria-selected="false"><i data-lucide="phone"></i>Phone</button>
+    <!-- ============ Left: call control ============ -->
+    <div class="col col--call">
+      <section class="card callcard" aria-labelledby="call-h">
+        <div class="card__head">
+          <h2 class="card__title" id="call-h">Call</h2>
+          <span class="status" id="status" data-state="idle" role="status" aria-live="polite">
+            <span class="status__dot" aria-hidden="true"></span><span id="status-text">Ready</span>
+          </span>
         </div>
-      </div>
 
-      <div class="field" id="phone-field" hidden>
-        <label for="phone">Test number</label>
-        <input id="phone" type="tel" inputmode="tel" placeholder="+91 98XXX XXXXX" autocomplete="off">
-        <small>Use a team member's number. Never a real customer's.</small>
-      </div>
+        <div class="callcard__hero">
+          <div class="timer mono" id="timer" aria-label="Call duration">00:00</div>
+          <div class="voice" id="voice" data-speaker="none" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <div class="voice__label" id="voice-label">Not connected</div>
+        </div>
 
-      <button class="btn btn--primary btn--lg" id="call-btn"><i data-lucide="phone-call"></i><span id="call-btn-label">Start call</span></button>
-      <button class="btn btn--ghost" id="handoff-btn" disabled><i data-lucide="user-round-check"></i>Hand off to a human</button>
+        <button class="btn btn--primary btn--lg btn--block" id="call-btn" type="button">
+          <i data-lucide="phone-call"></i><span id="call-btn-label">Start call</span>
+        </button>
+        <div class="callcard__actions">
+          <button class="btn btn--ghost" id="mute-btn" type="button" aria-pressed="false" disabled>
+            <i data-lucide="mic"></i><span id="mute-label">Mute</span>
+          </button>
+          <button class="btn btn--ghost" id="handoff-btn" type="button" disabled>
+            <i data-lucide="user-round-check"></i><span id="handoff-label">Hand off</span>
+          </button>
+        </div>
+      </section>
 
-      <dl class="metrics">
-        <div><dt>Last</dt><dd class="mono" id="m-last">—</dd></div>
-        <div><dt>Median</dt><dd class="mono" id="m-p50">—</dd></div>
-        <div><dt>Turns</dt><dd class="mono" id="m-turns">0</dd></div>
-      </dl>
-      <p class="hint" id="recording-note"><i data-lucide="circle-dot"></i>Calls are recorded. The agent says so at the start.</p>
-    </section>
+      <section class="card" aria-labelledby="setup-h">
+        <h2 class="card__title" id="setup-h">Setup</h2>
+        <div class="setup">
+          <div class="field">
+            <label for="language">Language</label>
+            <div class="select">
+              <select id="language">
+                <option value="hi">Hindi</option>
+                <option value="mr">Marathi</option>
+                <option value="ta">Tamil</option>
+                <option value="kn">Kannada</option>
+                <option value="en">English</option>
+              </select>
+              <i data-lucide="chevron-down"></i>
+            </div>
+          </div>
 
-    <!-- Centre: transcript -->
-    <section class="card transcript" aria-labelledby="tr-h">
+          <fieldset class="field">
+            <legend>Connect through</legend>
+            <div class="seg" role="radiogroup" aria-label="Connect through">
+              <button class="seg__btn is-active" type="button" role="radio" data-mode="browser" aria-checked="true"><i data-lucide="mic"></i>Browser</button>
+              <button class="seg__btn" type="button" role="radio" data-mode="phone" aria-checked="false" tabindex="-1"><i data-lucide="phone"></i>Phone</button>
+            </div>
+          </fieldset>
+
+          <div class="field" id="phone-field" hidden>
+            <label for="phone">Test number</label>
+            <input id="phone" type="tel" inputmode="tel" placeholder="+91 98XXX XXXXX" autocomplete="off" aria-describedby="phone-help phone-error">
+            <small class="field__error" id="phone-error" hidden><i data-lucide="circle-alert"></i><span>Enter a 10-digit number, with or without +91.</span></small>
+            <small id="phone-help">Team members' numbers only. The backend blocks numbers that aren't on the test allowlist.</small>
+          </div>
+        </div>
+        <p class="hint"><i data-lucide="shield-check"></i>Calls are recorded. The agent tells the caller at the start, and stops if they ask.</p>
+      </section>
+
+      <section class="card" aria-labelledby="lat-h">
+        <div class="card__head">
+          <h2 class="card__title" id="lat-h">Reply latency</h2>
+          <span class="caption">Target under 1,000 ms</span>
+        </div>
+        <dl class="metrics">
+          <div><dt>Last</dt><dd class="mono" id="m-last">—</dd></div>
+          <div><dt>Median</dt><dd class="mono" id="m-p50">—</dd></div>
+          <div><dt>Turns</dt><dd class="mono" id="m-turns">0</dd></div>
+        </dl>
+        <svg class="spark" id="spark" viewBox="0 0 260 56" preserveAspectRatio="none" role="img" aria-label="Reply latency per turn">
+          <line class="spark__target" x1="0" x2="260" y1="0" y2="0" id="spark-target"></line>
+          <polyline class="spark__line" id="spark-line" points=""></polyline>
+          <g id="spark-dots"></g>
+        </svg>
+        <p class="caption spark__empty" id="spark-empty">Latency appears after the caller's first reply.</p>
+      </section>
+    </div>
+
+    <!-- ============ Centre: transcript ============ -->
+    <section class="card col col--transcript" id="transcript" tabindex="-1" aria-labelledby="tr-h">
       <div class="card__head">
-        <h6 id="tr-h">Live transcript</h6>
+        <h2 class="card__title" id="tr-h">Live transcript</h2>
         <span class="caption" id="state-label">Waiting for a call</span>
       </div>
-      <ol class="steps" id="steps" aria-label="Call progress"></ol>
-      <div class="log" id="log" aria-live="polite">
-        <div class="empty" id="empty">
-          <i data-lucide="audio-lines"></i>
-          <p>Start a call to see the conversation here.</p>
+
+      <div class="progress" aria-label="Call progress">
+        <div class="progress__bar"><span id="progress-fill"></span></div>
+        <ol class="steps" id="steps"></ol>
+      </div>
+
+      <div class="log-wrap">
+        <div class="log" id="log" role="log" aria-live="polite" aria-relevant="additions text">
+          <div class="empty" id="empty">
+            <span class="empty__icon"><i data-lucide="audio-lines"></i></span>
+            <p class="empty__title">No call yet</p>
+            <p>Press <b>Start call</b>. The conversation appears here as it happens.</p>
+          </div>
         </div>
+        <button class="jump" id="jump" type="button" hidden><i data-lucide="arrow-down"></i>Jump to latest</button>
+      </div>
+
+      <div class="card__foot">
+        <span class="caption" id="msg-count">0 messages</span>
+        <button class="btn btn--ghost btn--sm" id="dl-transcript" type="button" disabled><i data-lucide="download"></i>Download transcript</button>
       </div>
     </section>
 
-    <!-- Right: lead record -->
-    <section class="card lead" aria-labelledby="lead-h">
-      <div class="card__head">
-        <h6 id="lead-h">Lead record</h6>
-        <span class="caption mono" id="lead-count">0 / 13</span>
-      </div>
-      <div class="outcome" id="outcome" data-outcome="none">
-        <span class="outcome__label">Outcome</span>
-        <span class="pill" id="outcome-pill">Pending</span>
-      </div>
-      <div id="lead-groups"></div>
-      <button class="btn btn--ghost btn--sm" id="copy-json" disabled><i data-lucide="copy"></i>Copy record as JSON</button>
-    </section>
+    <!-- ============ Right: outcome + lead ============ -->
+    <div class="col col--lead">
+      <section class="card outcome" id="outcome" data-outcome="none" aria-labelledby="out-h" aria-live="polite">
+        <div class="outcome__icon"><i data-lucide="hourglass"></i></div>
+        <div class="outcome__body">
+          <h2 class="card__title" id="out-h">Outcome</h2>
+          <p class="outcome__value" id="outcome-value">Pending</p>
+          <p class="outcome__desc" id="outcome-desc">Set by the agent when the call ends.</p>
+        </div>
+        <dl class="summary" id="summary" hidden>
+          <div><dt>Duration</dt><dd class="mono" id="s-dur">—</dd></div>
+          <div><dt>Fields</dt><dd class="mono" id="s-fields">—</dd></div>
+          <div><dt>Median reply</dt><dd class="mono" id="s-p50">—</dd></div>
+        </dl>
+      </section>
+
+      <section class="card lead" aria-labelledby="lead-h">
+        <div class="card__head">
+          <h2 class="card__title" id="lead-h">Lead record</h2>
+          <span class="caption mono" id="lead-count">0 of 13</span>
+        </div>
+        <div class="meter" role="progressbar" aria-labelledby="lead-h" aria-valuemin="0" aria-valuemax="13" aria-valuenow="0" id="lead-meter"><span id="lead-fill"></span></div>
+        <div id="lead-groups"></div>
+        <div class="lead__actions">
+          <button class="btn btn--ghost btn--sm" id="copy-json" type="button" disabled><i data-lucide="copy"></i><span>Copy JSON</span></button>
+          <button class="btn btn--ghost btn--sm" id="dl-json" type="button" disabled><i data-lucide="download"></i><span>Download</span></button>
+        </div>
+      </section>
+    </div>
   </main>
 
-  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
-  <script src="config.js"></script>
-  <script src="app.js"></script>
+  <div class="toasts" id="toasts" aria-live="assertive"></div>
+
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js" defer></script>
+  <script src="config.js" defer></script>
+  <script src="app.js" defer></script>
 </body>
 </html>
