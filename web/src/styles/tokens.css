@@ -8,16 +8,16 @@
 /* Brand sans — self-hosted Noto Sans (variable: width + weight) */
 @font-face {
   font-family: "Noto Sans";
-  src: url("./fonts/NotoSans-VariableFont_wdth_wght.ttf") format("truetype-variations");
+  src: url("/fonts/NotoSans-VariableFont_wdth_wght.ttf") format("truetype-variations");
   font-weight: 100 900;
   font-stretch: 62.5% 100%;
   font-style: normal;
   font-display: swap;
 }
-/* NOTE: Noto Sans is now self-hosted from /fonts (uploaded brand files).
-   Geist Mono (numerics) and Fraunces (editorial display) remain CDN-loaded —
-   no local files were supplied for them. */
-@import url("https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400..700&family=Fraunces:opsz,wght@9..144,400..700&display=swap");
+/* NOTE: Noto Sans is self-hosted from /fonts (public/fonts).
+   Geist Mono (numerics) and Fraunces (editorial display) are CDN-loaded via a
+   <link> in index.html. A CSS @import here would be ignored: @import must come
+   before every other rule, including @font-face. */
 
 :root {
   /* ---------- Raw scales ---------- */
@@ -62,8 +62,10 @@
   --ink-900:  #0E0D0B;
 
   /* Accents */
+  --leaf-50:  #EAF7EE;   /* good tint (console extension) */
   --leaf-500: #2BA84A;   /* savings / good */
   --leaf-600: #1E8537;
+  --rust-50:  #FBE9E3;   /* warning tint (console extension) */
   --rust-500: #D9522B;   /* warning */
   --rust-600: #B23F1E;
   --grid-500: #6B5BD2;   /* grid / tariff */
