@@ -3,18 +3,22 @@
 Web console and backend for the SolarSquare lead-qualification voice agent. Plan: `docs/superpowers/plans/2026-11-22-voice-agent-lead-qualification.md`.
 
 ```
-web/      Static console (SolarSquare design system). No build step.
-server/   FastAPI backend: room tokens and SIP dial-out. Holds all secrets.
+web/      React + Vite + TypeScript console (SolarSquare design system).
+server/   FastAPI backend: room tokens, SIP dial-out, ending calls. Holds all secrets.
 tests/    Backend tests.
 ```
 
-## Run the console in demo mode (no keys)
+## Run the console (demo mode, no keys)
 
 ```bash
-cd web && python3 -m http.server 8080      # open http://localhost:8080
+cd web
+npm install
+npm run dev          # http://localhost:5173
 ```
 
-Press **Start call**. A scripted Hindi lead-qualification call plays through the UI so you can see the transcript, progress steps, lead record and outcome.
+Pick **Demo**, choose a scenario and press **Start call**. A scripted Hindi call plays through the same event pipeline as a live call, so the UI behaves identically.
+
+Checks: `npm test` (contract + call-state tests), `npm run typecheck`, `npm run build`.
 
 ## Run it live
 
@@ -24,32 +28,47 @@ Press **Start call**. A scripted Hindi lead-qualification call plays through the
    python3 -m venv .venv && .venv/bin/pip install -r server/requirements.txt
    .venv/bin/uvicorn server.main:app --port 8000
    ```
-3. Set `backendUrl: "http://localhost:8000"` in `web/config.js`. The chip in the header switches from **Demo mode** to **Live**.
-4. Check `GET /api/health`: it lists which settings are still missing (names only).
+3. Start the console (`npm run dev` in `web/`). Vite proxies `/api` to `http://localhost:8000` (override with `BACKEND_URL`). The console polls `GET /api/health`; **Live agent** becomes selectable once LiveKit is configured, and the console lists any missing settings by name.
 
-## Event contract (the agent must publish these)
+For the demo on stage, use `npm run build && npm run preview` (port 4173, same proxy).
 
-The agent publishes JSON on LiveKit data topic `call-events`. The demo simulator emits the same shapes, so the UI is identical in both modes.
+## Event contract v1 (the agent must publish these)
 
-| type | fields |
-|---|---|
-| `state` | `state`: `IDENTITY`, `INTEREST`, `PROPERTY`, `BILL`, `LOCATION_TIMELINE`, `FINANCE`, `MEETING_PITCH`, `WRAP_UP`, `DONE` |
-| `transcript` | `role`: `agent` or `caller`; `text`; `final` (bool); `id` (same id updates an interim line) |
-| `lead` | `field` (see below); `value` |
-| `outcome` | `outcome`: `qualified`, `not_qualified`, `callback`, `wrong_number`, `do_not_call` |
-| `metric` | `replyMs`: time from caller stopping to agent audio starting |
-| `system` | `text` |
+Source of truth: [`web/src/contract/events.ts`](web/src/contract/events.ts). The agent publishes JSON on LiveKit data topic **`call-events`** (reliable). The console validates every event and ignores anything malformed or unknown, so a bad event never breaks the UI.
 
-Lead fields: `identity_confirmed`, `solar_interest`, `property_type`, `roof_ownership`, `roof_access`, `shadow_free_area`, `monthly_bill`, `discom`, `city_or_pincode`, `timeline`, `loan_interest`, `subsidy_interest`, `meeting_slot`.
+Every event may carry `seq` (monotonic per call; repeats are dropped) and `ts` (epoch ms).
+
+| type | fields | notes |
+|---|---|---|
+| `state` | `state`: `IDENTITY`, `INTEREST`, `PROPERTY`, `BILL`, `LOCATION_TIMELINE`, `FINANCE`, `MEETING_PITCH`, `WRAP_UP`, `DONE` | |
+| `transcript` | `role`: `agent` / `caller`; `text`; `final`; `id?` | same `id` updates an interim line in place |
+| `lead` | `field`; `value` (typed, see below) | wrong value types are rejected |
+| `outcome` | `outcome`: `qualified`, `not_qualified`, `callback`, `wrong_number`, `do_not_call`; `reason?`; `callbackAt?` | a later outcome replaces an earlier one |
+| `metric` | `replyMs`; `sttMs?`; `llmTtftMs?`; `ttsTtfbMs?` | one per agent reply; replyMs = caller stopped -> agent audio started |
+| `system` | `text` | |
+| `interrupted` | | caller spoke over the agent and it stopped |
+| `guardrail` | `kind`: `price` / `savings` / `subsidy` / `other`; `text?` | agent output blocked for stating a figure |
+| `reprompt` | `attempt` | caller went quiet, agent prompted again |
+| `handoff` | `reason` | agent handed the call to a person |
+| `speaking` | `who`: `agent` / `caller` / `none` | |
+| `usage` | `costInr`; `llmTokensIn?`; `llmTokensOut?`; `sttSeconds?`; `ttsCharacters?` | running totals for the call |
+| `snapshot` | `state`; `lead`; `outcome?`; `transcript?` | **send whenever a participant joins**, so a console joining mid-call (phone mode) catches up |
+| `call_ended` | `reason` | |
+
+Lead values: `identity_confirmed`, `solar_interest`, `roof_access`, `loan_interest`, `subsidy_interest` are booleans. `property_type` is `independent_house` / `housing_society` / `commercial`. `roof_ownership` is `owned` / `rented` / `shared`. `shadow_free_area` is a number in sq ft. `monthly_bill` is integer rupees. `discom`, `city_or_pincode`, `timeline` are strings. `meeting_slot` is `{ label, iso?, location? }`.
+
+**Console -> agent:** the console publishes on topic **`console-commands`**: `{ "type": "handoff_request", "reason": "..." }`. The agent should hand off and reply with a `handoff` event.
+
+**Agent setup notes:** in phone mode the console joins the room listen-only, so the agent must treat only the SIP participant as the caller. `POST /api/end` deletes the room, which disconnects the caller, the agent and the console.
 
 ## Safety rules built in
 
 - `/api/call` only dials numbers on `TEST_NUMBER_ALLOWLIST`. An empty list blocks all calls.
-- No API key ever reaches the browser. The browser gets a room token only. Its lifetime is the LiveKit default; shorten it with the SDK's TTL option once `livekit-api` is installed and pinned.
+- `/api/end` only closes rooms this backend created (`call-xxxxxxxx`).
+- No API key ever reaches the browser. The browser gets a room token only.
 - Never commit `.env`.
 
 ## Not done yet
 
-- The agent worker (plan Tasks 1-6): the console shows the demo until it exists and publishes events.
-- The LiveKit API names in `server/main.py` and the `livekit-client` version in `web/config.js` should be checked against the versions you pin.
-- Human handoff: the button logs a request in the UI. Wire it to the agent's `handoff_to_human` once that exists.
+- The agent worker (plan Tasks 1-6): live mode needs it to publish the events above.
+- More demo scenarios (interruption, silence, subsidy question, "ask my son", do-not-call) and replay of recorded calls.
