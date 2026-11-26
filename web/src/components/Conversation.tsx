@@ -1,6 +1,10 @@
-import { AudioLines, Hand, ShieldCheck, Timer, UserRoundCheck } from "lucide-react";
+import { Hand, ShieldCheck, Timer, UserRoundCheck } from "lucide-react";
 import { useLayoutEffect, useRef, type ReactNode } from "react";
+import { AGENT } from "../domain/agent";
 import { currentStepLabel, stepStatuses, type CallView, type MarkerKind, type TimelineItem } from "../state/callReducer";
+import { AgentOrb } from "./AgentOrb";
+import { ProgressTrack } from "./ProgressTrack";
+import { RooftopIllustration } from "./RooftopIllustration";
 
 const MARKER_ICONS: Record<MarkerKind, ReactNode> = {
   interrupted: <Hand size={16} />,
@@ -9,18 +13,10 @@ const MARKER_ICONS: Record<MarkerKind, ReactNode> = {
   handoff: <UserRoundCheck size={16} />,
 };
 
-const STEP_STATUS_TEXT = {
-  done: "captured",
-  partial: "partly captured",
-  current: "in progress",
-  pending: "not reached",
-  skipped: "not captured",
-} as const;
-
 /** Distance from the bottom (px) within which the log keeps following new lines. */
 const FOLLOW_THRESHOLD = 80;
 
-export function TranscriptPanel({ view }: { view: CallView }) {
+export function Conversation({ view, callerName }: { view: CallView; callerName: string }) {
   const logRef = useRef<HTMLDivElement>(null);
   const following = useRef(true);
   const last = view.timeline.at(-1);
@@ -28,7 +24,7 @@ export function TranscriptPanel({ view }: { view: CallView }) {
   // Follow new lines, unless the reader has scrolled up to look at something.
   useLayoutEffect(() => {
     const el = logRef.current;
-    if (el && following.current) el.scrollTop = el.scrollHeight;
+    if (el && following.current) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [view.timeline.length, last?.kind === "line" ? last.text : null]);
 
   const onScroll = () => {
@@ -37,42 +33,46 @@ export function TranscriptPanel({ view }: { view: CallView }) {
   };
 
   return (
-    <section className="card transcript" aria-labelledby="tr-h">
+    <section className="card convo" aria-labelledby="convo-h">
       <div className="card__head">
-        <h6 id="tr-h">Live transcript</h6>
+        <h6 id="convo-h">Conversation</h6>
         <span className="caption">{currentStepLabel(view)}</span>
       </div>
 
-      <ol className="steps" aria-label="Call progress">
-        {stepStatuses(view).map((s) => (
-          <li key={s.state} className={`step is-${s.status}`} aria-current={s.status === "current" ? "step" : undefined}>
-            {s.label}
-            <span className="sr-only">, {STEP_STATUS_TEXT[s.status]}</span>
-          </li>
-        ))}
-      </ol>
+      <ProgressTrack steps={stepStatuses(view)} />
 
       <div className="log" ref={logRef} onScroll={onScroll} role="log" aria-live="polite" aria-relevant="additions">
         {view.timeline.length === 0 ? (
           <div className="empty">
-            <AudioLines size={24} />
-            <p>{view.phase === "connecting" ? "Connecting." : "Start a call to see the conversation here."}</p>
+            <RooftopIllustration />
+            <p className="empty__title">{view.phase === "connecting" ? "Connecting the call" : `${AGENT.name} is ready to call`}</p>
+            <p className="empty__body">The conversation appears here as it happens, in the caller's own words.</p>
           </div>
         ) : (
-          view.timeline.map((item) => <TimelineRow key={item.id} item={item} />)
+          view.timeline.map((item) => <TimelineRow key={item.id} item={item} callerName={callerName} />)
         )}
       </div>
     </section>
   );
 }
 
-function TimelineRow({ item }: { item: TimelineItem }) {
+function TimelineRow({ item, callerName }: { item: TimelineItem; callerName: string }) {
   switch (item.kind) {
     case "line":
-      return (
-        <div className={`msg msg--${item.role}${item.final ? "" : " is-interim"}`}>
-          <span className="msg__who">{item.role === "agent" ? "Agent" : "Caller"}</span>
-          <div className="msg__bubble">{item.text}</div>
+      return item.role === "agent" ? (
+        <div className={`msg msg--agent${item.final ? "" : " is-interim"}`}>
+          <AgentOrb state="idle" size="sm" />
+          <div className="msg__body">
+            <span className="msg__who">{AGENT.name}</span>
+            <div className="msg__bubble">{item.text}</div>
+          </div>
+        </div>
+      ) : (
+        <div className={`msg msg--caller${item.final ? "" : " is-interim"}`}>
+          <div className="msg__body">
+            <span className="msg__who">{callerName}</span>
+            <div className="msg__bubble">{item.text}</div>
+          </div>
         </div>
       );
     case "system":

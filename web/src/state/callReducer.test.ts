@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { CallEvent } from "../contract/events";
-import { callReducer, initialCallView, medianReplyMs, stepStatuses, type CallView } from "./callReducer";
+import {
+  callReducer,
+  initialCallView,
+  medianReplyMs,
+  momentCounts,
+  orbState,
+  recordingDisclosed,
+  stepStatuses,
+  type CallView,
+} from "./callReducer";
 
 const T = 1_000;
 const live = (): CallView =>
@@ -151,6 +160,33 @@ describe("step statuses", () => {
   it("marks wrap-up done once it was visited and the call moved on", () => {
     const v = apply(live(), { type: "state", state: "WRAP_UP" }, { type: "state", state: "DONE" });
     expect(statusOf(v, "WRAP_UP")).toBe("done");
+  });
+});
+
+describe("orb state", () => {
+  it("follows the call phase and who is speaking", () => {
+    expect(orbState(initialCallView)).toBe("idle");
+    expect(orbState(callReducer(initialCallView, { type: "connect", at: T }))).toBe("connecting");
+    expect(orbState(live())).toBe("listening");
+    expect(orbState(apply(live(), { type: "speaking", who: "agent" }))).toBe("agent");
+    expect(orbState(apply(live(), { type: "speaking", who: "caller" }))).toBe("caller");
+    expect(orbState(apply(live(), { type: "speaking", who: "agent" }, { type: "call_ended", reason: "x" }))).toBe("ended");
+  });
+});
+
+describe("recording disclosure", () => {
+  it("is detected once the agent says the call is recorded, in Hindi or English", () => {
+    expect(recordingDisclosed(live())).toBe(false);
+    expect(recordingDisclosed(apply(live(), { type: "transcript", role: "caller", text: "kya yeh record ho raha hai?", final: true }))).toBe(false);
+    expect(recordingDisclosed(apply(live(), { type: "transcript", role: "agent", text: "Yeh call record ho rahi hai.", final: true }))).toBe(true);
+    expect(recordingDisclosed(apply(live(), { type: "transcript", role: "agent", text: "This call is being recorded.", final: true }))).toBe(true);
+  });
+});
+
+describe("moment counts", () => {
+  it("counts robustness moments by kind", () => {
+    const v = apply(live(), { type: "interrupted" }, { type: "interrupted" }, { type: "guardrail", kind: "subsidy" });
+    expect(momentCounts(v)).toEqual({ interrupted: 2, guardrail: 1, reprompt: 0, handoff: 0 });
   });
 });
 

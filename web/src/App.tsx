@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { CallPanel } from "./components/CallPanel";
-import { LeadPanel } from "./components/LeadPanel";
+import { CallStage } from "./components/CallStage";
+import { Conversation } from "./components/Conversation";
+import { LeadCard } from "./components/LeadCard";
+import { PageHeader } from "./components/PageHeader";
+import { PerformanceBand } from "./components/PerformanceBand";
 import { TopBar } from "./components/TopBar";
-import { TranscriptPanel } from "./components/TranscriptPanel";
+import { findScenario } from "./sources/demo/demoSource";
 import { DEFAULT_SCENARIO_ID } from "./sources/demo/scenarios";
 import type { CallOptions } from "./sources";
 import { useCall } from "./state/useCall";
@@ -29,11 +32,15 @@ export function App() {
     if (health.livekit) setOptions((o) => ({ ...o, source: "live" }));
   }, [health]);
 
+  const callerName = options.source === "demo" ? findScenario(options.scenarioId).caller.name : "Caller";
+
   return (
-    <>
+    <div className="page">
+      <div className="sunrise" aria-hidden="true" />
       <TopBar source={options.source} />
+      <PageHeader />
       <main className="layout">
-        <CallPanel
+        <CallStage
           view={view}
           health={health}
           options={options}
@@ -42,9 +49,10 @@ export function App() {
           onEnd={() => end()}
           onHandoff={() => void requestHandoff()}
         />
-        <TranscriptPanel view={view} />
-        <LeadPanel view={view} />
+        <Conversation view={view} callerName={callerName} />
+        <LeadCard view={view} />
+        <PerformanceBand view={view} />
       </main>
-    </>
+    </div>
   );
 }

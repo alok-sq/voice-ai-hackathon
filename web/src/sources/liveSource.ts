@@ -1,4 +1,12 @@
-import { ParticipantKind, Room, RoomEvent, Track, type RemoteParticipant, type RemoteTrack } from "livekit-client";
+import {
+  ParticipantKind,
+  Room,
+  RoomEvent,
+  Track,
+  type Participant,
+  type RemoteParticipant,
+  type RemoteTrack,
+} from "livekit-client";
 import { COMMANDS_TOPIC, EVENTS_TOPIC, parseEvent, type ConsoleCommand } from "../contract/events";
 import { endRoom, getRoomToken, placePhoneCall } from "./api";
 import { throwIfAborted, type CallOptions, type CallSource } from "./types";
@@ -51,6 +59,15 @@ export function createLiveSource(opts: Pick<CallOptions, "mode" | "language" | "
         const event = parseEvent(raw);
         if (event) emit(event);
         else console.warn("[console] Ignored an event that does not match the contract", raw);
+      });
+
+      // LiveKit's own voice-activity detection drives the agent orb, so the
+      // agent does not have to publish `speaking` events itself.
+      r.on(RoomEvent.ActiveSpeakersChanged, (speakers: Participant[]) => {
+        if (stopped) return;
+        const agent = speakers.some((p) => p.kind === ParticipantKind.AGENT);
+        const caller = speakers.some((p) => p.kind !== ParticipantKind.AGENT);
+        emit({ type: "speaking", who: agent ? "agent" : caller ? "caller" : "none" });
       });
 
       r.on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => {

@@ -1,4 +1,5 @@
 import type { CallEvent } from "../../contract/events";
+import type { CallerProfile } from "../../domain/agent";
 
 /** [delay after the previous step in ms, events emitted together]. */
 export type ScriptStep = [number, CallEvent[]];
@@ -7,6 +8,7 @@ export interface Scenario {
   id: string;
   title: string;
   description: string;
+  caller: CallerProfile;
   script: ScriptStep[];
 }
 
@@ -24,6 +26,7 @@ const happyPath: Scenario = {
   id: "happy-path",
   title: "Qualified lead",
   description: "Interested homeowner in Pune. Every field captured, survey booked.",
+  caller: { name: "Mr. Nair", phone: "+91 98••• ••521", city: "Pune", source: "Website enquiry" },
   script: [
     [600, [{ type: "system", text: "Agent joined. The call is recorded." }, { type: "state", state: "IDENTITY" }]],
     [900, [agent("Namaste, main SolarSquare se bol rahi hoon. Yeh call record ho rahi hai. Kya meri baat Mr. Nair se ho rahi hai?")]],

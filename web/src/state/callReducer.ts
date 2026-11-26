@@ -259,6 +259,35 @@ export function medianReplyMs(turns: Turn[]): number | null {
   return sorted.length % 2 ? sorted[mid]! : Math.round((sorted[mid - 1]! + sorted[mid]!) / 2);
 }
 
+export type OrbState = "idle" | "connecting" | "listening" | "agent" | "caller" | "ended";
+
+/** What the agent orb shows: the call phase, then who holds the floor. */
+export function orbState(view: CallView): OrbState {
+  switch (view.phase) {
+    case "idle":
+      return "idle";
+    case "connecting":
+      return "connecting";
+    case "ended":
+    case "error":
+      return "ended";
+    case "live":
+      return view.speaking === "none" ? "listening" : view.speaking;
+  }
+}
+
+/** Ground rule from the brief: the agent says the call is recorded. True once it has. */
+export function recordingDisclosed(view: CallView): boolean {
+  return view.timeline.some((i) => i.kind === "line" && i.role === "agent" && i.final && /record/i.test(i.text));
+}
+
+/** Robustness moments handled during the call, by kind. */
+export function momentCounts(view: CallView): Record<MarkerKind, number> {
+  const counts: Record<MarkerKind, number> = { interrupted: 0, guardrail: 0, reprompt: 0, handoff: 0 };
+  for (const item of view.timeline) if (item.kind === "marker") counts[item.marker] += 1;
+  return counts;
+}
+
 /** The record the console exports: what the agent would write to the CRM. */
 export function leadRecord(view: CallView) {
   return { outcome: view.outcome, lead: view.lead, usage: view.usage, turns: view.turns.length };

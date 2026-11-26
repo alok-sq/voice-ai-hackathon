@@ -1,9 +1,16 @@
+import type { CallEvent } from "../../contract/events";
 import type { CallSource, StartContext } from "../types";
 import { SCENARIOS, type Scenario } from "./scenarios";
 
-/** Plays a scripted scenario through the same event pipeline as a live call. */
+export const findScenario = (id: string): Scenario => SCENARIOS.find((s) => s.id === id) ?? SCENARIOS[0]!;
+
+/**
+ * Plays a scripted scenario through the same event pipeline as a live call.
+ * Like a live room's speaker detection, it marks who holds the floor before
+ * each spoken line, so the agent orb animates in demos too.
+ */
 export function createDemoSource(scenarioId: string): CallSource {
-  const scenario: Scenario = SCENARIOS.find((s) => s.id === scenarioId) ?? SCENARIOS[0]!;
+  const scenario = findScenario(scenarioId);
   const timers: ReturnType<typeof setTimeout>[] = [];
   let emit: StartContext["emit"] = () => {};
 
@@ -13,6 +20,11 @@ export function createDemoSource(scenarioId: string): CallSource {
     emit = () => {};
   };
 
+  const play = (e: CallEvent) => {
+    if (e.type === "transcript" && e.final) emit({ type: "speaking", who: e.role });
+    emit(e);
+  };
+
   return {
     async start(ctx) {
       emit = ctx.emit;
@@ -20,7 +32,7 @@ export function createDemoSource(scenarioId: string): CallSource {
       let t = 0;
       for (const [delay, events] of scenario.script) {
         t += delay;
-        timers.push(setTimeout(() => events.forEach((e) => emit(e)), t));
+        timers.push(setTimeout(() => events.forEach(play), t));
       }
     },
     stop,
