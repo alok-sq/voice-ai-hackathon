@@ -4,6 +4,16 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Voice agent console</title>
+    <script>
+      // Set the theme before first paint so dark mode never flashes white.
+      // Mirrors src/state/theme.ts: a saved "light"/"dark" wins, otherwise follow the system.
+      (function () {
+        var saved = null;
+        try { saved = localStorage.getItem("console.theme"); } catch (e) {}
+        var dark = saved === "dark" || (saved !== "light" && window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.dataset.theme = dark ? "dark" : "light";
+      })();
+    </script>
     <link rel="icon" href="/assets/logo.webp" />
     <link rel="preload" href="/fonts/NotoSans-VariableFont_wdth_wght.ttf" as="font" type="font/ttf" crossorigin />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
