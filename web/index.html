@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <meta name="theme-color" content="#FBFAF7">
+  <meta name="theme-color" content="#FFFFFF">
   <meta name="description" content="Run and monitor SolarSquare lead-qualification voice calls.">
   <title>Voice agent console · SolarSquare</title>
   <link rel="icon" href="assets/logo.webp">
@@ -14,56 +14,82 @@
 <body>
   <a class="skip" href="#transcript">Skip to transcript</a>
 
-  <header class="topbar">
-    <div class="topbar__brand">
-      <img src="assets/logo.webp" alt="SolarSquare" height="28">
-      <span class="topbar__divider" aria-hidden="true"></span>
-      <div class="topbar__title">
-        <span class="topbar__name">Voice agent console</span>
-        <span class="topbar__sub">Lead qualification</span>
-      </div>
+  <!-- ================= Header ================= -->
+  <header class="hdr">
+    <div class="hdr__left">
+      <img class="hdr__logo" src="assets/logo.webp" alt="SolarSquare" height="22">
+      <span class="hdr__sep" aria-hidden="true"></span>
+      <span class="hdr__product">Voice agent console</span>
+      <nav class="crumbs" aria-label="Workspace">
+        <span class="crumbs__slash" aria-hidden="true">/</span>
+        <span class="crumbs__item">Lead qualification</span>
+        <span class="crumbs__slash" aria-hidden="true">/</span>
+        <span class="agentbadge"><span class="agentbadge__dot" aria-hidden="true"></span><span id="hdr-agent">Hindi agent</span></span>
+      </nav>
     </div>
-    <div class="topbar__right">
-      <span class="chip chip--health" id="health-chip" hidden><i data-lucide="activity"></i><span id="health-label">Checking backend</span></span>
-      <span class="chip" id="source-chip"><i data-lucide="flask-conical"></i><span id="source-label">Demo mode</span></span>
+    <div class="hdr__right">
+      <span class="tag tag--health" id="health-chip" hidden><span class="tag__dot"></span><span id="health-label">Checking backend</span></span>
+      <span class="tag" id="source-chip"><span class="tag__dot"></span><span id="source-label">Demo</span></span>
+      <div class="pop-wrap">
+        <button class="iconbtn iconbtn--bordered" id="settings-btn" type="button" aria-label="Console settings" aria-haspopup="dialog" aria-expanded="false" aria-controls="settings"><i data-lucide="settings-2"></i></button>
+        <div class="pop" id="settings" role="dialog" aria-label="Console settings" hidden>
+          <div class="pop__head">Console</div>
+          <dl class="kv">
+            <div><dt>Data source</dt><dd id="set-source">Demo</dd></div>
+            <div><dt>Backend</dt><dd class="mono" id="set-backend">Not set</dd></div>
+            <div><dt>Event topic</dt><dd class="mono" id="set-topic">call-events</dd></div>
+          </dl>
+          <p class="pop__note" id="set-note">Demo plays a scripted call. Set <code>backendUrl</code> in <code>config.js</code> to go live.</p>
+          <div class="pop__head">Keyboard shortcuts</div>
+          <dl class="kv">
+            <div><dt>Start or end call</dt><dd><kbd class="kbd-mod">Ctrl</kbd> <kbd>Enter</kbd></dd></div>
+            <div><dt>Mute or unmute</dt><dd><kbd>M</kbd></dd></div>
+          </dl>
+        </div>
+      </div>
     </div>
   </header>
 
-  <main class="layout">
-    <!-- ============ Left: call control ============ -->
-    <div class="col col--call">
-      <section class="card callcard" aria-labelledby="call-h">
-        <div class="card__head">
-          <h2 class="card__title" id="call-h">Call</h2>
-          <span class="status" id="status" data-state="idle" role="status" aria-live="polite">
-            <span class="status__dot" aria-hidden="true"></span><span id="status-text">Ready</span>
-          </span>
+  <main class="app" id="app" data-call="idle" data-agent="off">
+    <!-- ================= Left: call control ================= -->
+    <aside class="panel panel--left" aria-label="Call control">
+      <section class="sec sec--call" aria-label="Call">
+        <div class="callstate">
+          <span class="badge" id="status" data-state="idle" role="status" aria-live="polite"><span class="badge__dot" aria-hidden="true"></span><span id="status-text">Ready</span></span>
+          <span class="callstate__mode" id="clock-mode"><i data-lucide="mic"></i><span>Browser</span></span>
         </div>
 
-        <div class="callcard__hero">
-          <div class="timer mono" id="timer" aria-label="Call duration">00:00</div>
-          <div class="voice" id="voice" data-speaker="none" aria-hidden="true">
-            <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        <div class="timer" role="timer" aria-label="Call duration">
+          <span class="timer__digits mono" aria-hidden="true"><span id="t-m">00</span><span class="timer__colon">:</span><span id="t-s">00</span></span>
+          <span class="sr" id="timer">00:00</span>
+        </div>
+        <p class="conn"><span class="ind" id="conn" data-tone="off"></span><span id="conn-text">Not connected</span></p>
+
+        <div class="agentstate">
+          <span class="orb orb--md orb--status" aria-hidden="true"><span class="orb__core"><i data-lucide="sparkles"></i></span></span>
+          <div class="agentstate__text">
+            <span class="agentstate__label">AI agent</span>
+            <span class="agentstate__value" id="agent-text">Offline</span>
           </div>
-          <div class="voice__label" id="voice-label">Not connected</div>
+          <span class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
         </div>
 
-        <button class="btn btn--primary btn--lg btn--block" id="call-btn" type="button">
-          <i data-lucide="phone-call"></i><span id="call-btn-label">Start call</span>
+        <button class="btn btn--call btn--block" id="call-btn" type="button">
+          <i data-lucide="phone"></i><span id="call-btn-label">Start call</span>
         </button>
-        <div class="callcard__actions">
-          <button class="btn btn--ghost" id="mute-btn" type="button" aria-pressed="false" disabled>
+        <div class="btnrow">
+          <button class="btn btn--quiet" id="mute-btn" type="button" aria-pressed="false" disabled title="Mute (M)">
             <i data-lucide="mic"></i><span id="mute-label">Mute</span>
           </button>
-          <button class="btn btn--ghost" id="handoff-btn" type="button" disabled>
+          <button class="btn btn--quiet" id="handoff-btn" type="button" disabled>
             <i data-lucide="user-round-check"></i><span id="handoff-label">Hand off</span>
           </button>
         </div>
       </section>
 
-      <section class="card" aria-labelledby="setup-h">
-        <h2 class="card__title" id="setup-h">Setup</h2>
-        <div class="setup">
+      <section class="sec sec--setup" aria-labelledby="setup-h">
+        <h2 class="sec__title" id="setup-h">Call setup</h2>
+        <div class="form">
           <div class="field">
             <label for="language">Language</label>
             <div class="select">
@@ -74,10 +100,9 @@
                 <option value="kn">Kannada</option>
                 <option value="en">English</option>
               </select>
-              <i data-lucide="chevron-down"></i>
+              <i data-lucide="chevrons-up-down"></i>
             </div>
           </div>
-
           <fieldset class="field">
             <legend>Connect through</legend>
             <div class="seg" role="radiogroup" aria-label="Connect through">
@@ -85,94 +110,133 @@
               <button class="seg__btn" type="button" role="radio" data-mode="phone" aria-checked="false" tabindex="-1"><i data-lucide="phone"></i>Phone</button>
             </div>
           </fieldset>
-
-          <div class="field" id="phone-field" hidden>
+          <div class="field field--full" id="phone-field" hidden>
             <label for="phone">Test number</label>
-            <input id="phone" type="tel" inputmode="tel" placeholder="+91 98XXX XXXXX" autocomplete="off" aria-describedby="phone-help phone-error">
+            <input id="phone" type="tel" inputmode="tel" placeholder="+91 98XXX XXXXX" autocomplete="off" aria-describedby="phone-error phone-help">
             <small class="field__error" id="phone-error" hidden><i data-lucide="circle-alert"></i><span>Enter a 10-digit number, with or without +91.</span></small>
-            <small id="phone-help">Team members' numbers only. The backend blocks numbers that aren't on the test allowlist.</small>
+            <small id="phone-help">Team numbers only. The backend blocks numbers that aren't on the test allowlist.</small>
           </div>
         </div>
-        <p class="hint"><i data-lucide="shield-check"></i>Calls are recorded. The agent tells the caller at the start, and stops if they ask.</p>
+        <p class="notice"><i data-lucide="shield-check"></i><span>Calls are recorded. The agent says so at the start and stops if asked.</span></p>
       </section>
 
-      <section class="card" aria-labelledby="lat-h">
-        <div class="card__head">
-          <h2 class="card__title" id="lat-h">Reply latency</h2>
-          <span class="caption">Target under 1,000 ms</span>
+      <section class="sec sec--latency" aria-labelledby="lat-h">
+        <div class="sec__head">
+          <h2 class="sec__title" id="lat-h">Reply latency</h2>
+          <span class="sec__meta">Target &lt; 1,000 ms</span>
         </div>
-        <dl class="metrics">
+        <dl class="stats stats--sm">
           <div><dt>Last</dt><dd class="mono" id="m-last">—</dd></div>
           <div><dt>Median</dt><dd class="mono" id="m-p50">—</dd></div>
           <div><dt>Turns</dt><dd class="mono" id="m-turns">0</dd></div>
         </dl>
-        <svg class="spark" id="spark" viewBox="0 0 260 56" preserveAspectRatio="none" role="img" aria-label="Reply latency per turn">
+        <svg class="spark" id="spark" viewBox="0 0 260 32" preserveAspectRatio="none" role="img" aria-label="Reply latency per turn" style="display:none">
           <line class="spark__target" x1="0" x2="260" y1="0" y2="0" id="spark-target"></line>
           <polyline class="spark__line" id="spark-line" points=""></polyline>
           <g id="spark-dots"></g>
         </svg>
-        <p class="caption spark__empty" id="spark-empty">Latency appears after the caller's first reply.</p>
       </section>
-    </div>
+    </aside>
 
-    <!-- ============ Centre: transcript ============ -->
-    <section class="card col col--transcript" id="transcript" tabindex="-1" aria-labelledby="tr-h">
-      <div class="card__head">
-        <h2 class="card__title" id="tr-h">Live transcript</h2>
-        <span class="caption" id="state-label">Waiting for a call</span>
+    <!-- ================= Centre: transcript ================= -->
+    <section class="panel panel--center sec--transcript" id="transcript" tabindex="-1" aria-labelledby="tr-h">
+      <div class="tr-head">
+        <div class="tr-head__left">
+          <h2 class="tr-head__title" id="tr-h">Live transcript</h2>
+          <span class="live" id="live" hidden>
+            <span class="orb orb--xs orb--status" aria-hidden="true"><span class="orb__core"></span></span>
+            <span id="live-text">Listening</span>
+            <span class="wave wave--sm" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          </span>
+        </div>
+        <span class="tr-head__step" id="state-label">No active call</span>
       </div>
-
-      <div class="progress" aria-label="Call progress">
-        <div class="progress__bar"><span id="progress-fill"></span></div>
-        <ol class="steps" id="steps"></ol>
-      </div>
+      <div class="segbar" id="segbar" aria-hidden="true"></div>
 
       <div class="log-wrap">
-        <div class="log" id="log" role="log" aria-live="polite" aria-relevant="additions text">
-          <div class="empty" id="empty">
-            <span class="empty__icon"><i data-lucide="audio-lines"></i></span>
-            <p class="empty__title">No call yet</p>
-            <p>Press <b>Start call</b>. The conversation appears here as it happens.</p>
-          </div>
-        </div>
-        <button class="jump" id="jump" type="button" hidden><i data-lucide="arrow-down"></i>Jump to latest</button>
+        <div class="log" id="log" role="log" aria-live="polite" aria-relevant="additions text"></div>
+        <button class="jump" id="jump" type="button" hidden><i data-lucide="arrow-down"></i>New messages</button>
       </div>
 
-      <div class="card__foot">
-        <span class="caption" id="msg-count">0 messages</span>
-        <button class="btn btn--ghost btn--sm" id="dl-transcript" type="button" disabled><i data-lucide="download"></i>Download transcript</button>
+      <div class="tr-foot">
+        <span class="tr-foot__count" id="msg-count">0 messages</span>
+        <button class="btn btn--ghost btn--sm" id="dl-transcript" type="button" disabled><i data-lucide="download"></i>Transcript</button>
       </div>
     </section>
 
-    <!-- ============ Right: outcome + lead ============ -->
-    <div class="col col--lead">
-      <section class="card outcome" id="outcome" data-outcome="none" aria-labelledby="out-h" aria-live="polite">
-        <div class="outcome__icon"><i data-lucide="hourglass"></i></div>
-        <div class="outcome__body">
-          <h2 class="card__title" id="out-h">Outcome</h2>
-          <p class="outcome__value" id="outcome-value">Pending</p>
-          <p class="outcome__desc" id="outcome-desc">Set by the agent when the call ends.</p>
+    <!-- ================= Right: lead intelligence ================= -->
+    <aside class="panel panel--right" aria-label="Lead intelligence">
+      <section class="sec sec--qual" id="qual" data-q="idle" aria-labelledby="qual-h" aria-live="polite">
+        <h2 class="sec__title" id="qual-h">Lead status</h2>
+        <div class="verdict">
+          <span class="verdict__icon"><i data-lucide="circle-dashed"></i></span>
+          <div class="verdict__body">
+            <p class="verdict__label" id="q-label">Awaiting call</p>
+            <p class="verdict__desc" id="q-desc">Ready to start a call.</p>
+          </div>
         </div>
-        <dl class="summary" id="summary" hidden>
-          <div><dt>Duration</dt><dd class="mono" id="s-dur">—</dd></div>
-          <div><dt>Fields</dt><dd class="mono" id="s-fields">—</dd></div>
-          <div><dt>Median reply</dt><dd class="mono" id="s-p50">—</dd></div>
+        <dl class="stats">
+          <div><dt>Fields</dt><dd class="mono"><span id="q-fields">0</span><small>/13</small></dd></div>
+          <div><dt>Duration</dt><dd class="mono" id="q-dur">00:00</dd></div>
+          <div><dt>Median reply</dt><dd class="mono" id="q-p50">—</dd></div>
         </dl>
       </section>
 
-      <section class="card lead" aria-labelledby="lead-h">
-        <div class="card__head">
-          <h2 class="card__title" id="lead-h">Lead record</h2>
-          <span class="caption mono" id="lead-count">0 of 13</span>
+      <section class="sec sec--identity" id="identity" data-id="unknown" aria-labelledby="id-h" aria-live="polite">
+        <div class="sec__head">
+          <h2 class="sec__title" id="id-h">Identity</h2>
+          <span class="sec__meta">Step 1</span>
         </div>
-        <div class="meter" role="progressbar" aria-labelledby="lead-h" aria-valuemin="0" aria-valuemax="13" aria-valuenow="0" id="lead-meter"><span id="lead-fill"></span></div>
-        <div id="lead-groups"></div>
-        <div class="lead__actions">
-          <button class="btn btn--ghost btn--sm" id="copy-json" type="button" disabled><i data-lucide="copy"></i><span>Copy JSON</span></button>
-          <button class="btn btn--ghost btn--sm" id="dl-json" type="button" disabled><i data-lucide="download"></i><span>Download</span></button>
+        <div class="idblock">
+          <span class="idblock__avatar" aria-hidden="true"><i data-lucide="user-round"></i><span class="idblock__badge"></span></span>
+          <div class="idblock__main">
+            <p class="idblock__name">Customer</p>
+            <p class="idblock__status"><span id="id-status">Identity not established</span></p>
+          </div>
+          <div class="idblock__contact" id="id-contact" hidden>
+            <span class="idblock__contact-k" id="id-contact-k"></span>
+            <span class="idblock__contact-v mono" id="id-contact-v"></span>
+          </div>
+        </div>
+        <p class="idblock__desc" id="id-desc">Confirmed by the agent in the first step of the call.</p>
+      </section>
+
+      <section class="sec sec--signals" aria-labelledby="sig-h">
+        <h2 class="sec__title" id="sig-h">Lead signals</h2>
+        <div class="tiles" id="tiles"></div>
+        <ul class="signals" id="signals" aria-label="Captured signals"></ul>
+      </section>
+
+      <section class="sec sec--next" id="next" data-tone="idle" aria-labelledby="next-h">
+        <h2 class="sec__title" id="next-h">Next best action</h2>
+        <div class="next">
+          <span class="next__icon"><i data-lucide="arrow-right"></i></span>
+          <div class="next__body">
+            <p class="next__title" id="next-title">Complete qualification to determine next action</p>
+            <p class="next__desc" id="next-desc">Start a call to begin.</p>
+          </div>
         </div>
       </section>
-    </div>
+
+      <section class="sec sec--progress" aria-labelledby="prog-h">
+        <div class="sec__head">
+          <h2 class="sec__title" id="prog-h">Qualification journey</h2>
+          <span class="sec__meta mono" id="prog-count">0/8</span>
+        </div>
+        <ol class="journey" id="stepper"></ol>
+      </section>
+
+      <section class="sec sec--details" aria-labelledby="lead-h">
+        <div class="sec__head">
+          <h2 class="sec__title" id="lead-h">Lead record</h2>
+          <div class="sec__actions">
+            <button class="iconbtn iconbtn--sm" id="copy-json" type="button" disabled aria-label="Copy lead record as JSON" title="Copy JSON"><i data-lucide="copy"></i></button>
+            <button class="iconbtn iconbtn--sm" id="dl-json" type="button" disabled aria-label="Download lead record" title="Download JSON"><i data-lucide="download"></i></button>
+          </div>
+        </div>
+        <div id="lead-groups"></div>
+      </section>
+    </aside>
   </main>
 
   <div class="toasts" id="toasts" aria-live="assertive"></div>

@@ -62,8 +62,14 @@
   --ink-900:  #0E0D0B;
 
   /* Accents */
+  --leaf-50:  #EEF8F1;
+  --leaf-100: #D7F0DE;
+  --leaf-200: #ACDDBA;
   --leaf-500: #2BA84A;   /* savings / good */
   --leaf-600: #1E8537;
+  --leaf-700: #176A2C;
+  --rust-50:  #FDF1EC;
+  --rust-100: #F9DDD2;
   --rust-500: #D9522B;   /* warning */
   --rust-600: #B23F1E;
   --grid-500: #6B5BD2;   /* grid / tariff */
