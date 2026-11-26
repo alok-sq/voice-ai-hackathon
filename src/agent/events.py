@@ -17,9 +17,18 @@ COMMANDS_TOPIC = "console-commands"
 
 
 class EventPublisher:
-    def __init__(self, send: Callable[[bytes, str], "asyncio.Future[Any] | Any"]):
-        """`send(payload, topic)` publishes reliably. Injected so tests need no room."""
+    def __init__(
+        self,
+        send: Callable[[bytes, str], "asyncio.Future[Any] | Any"],
+        listeners: Optional[List[Callable[[Dict[str, Any]], None]]] = None,
+    ):
+        """`send(payload, topic)` publishes reliably. Injected so tests need no room.
+
+        `listeners` see every event on the backend (e.g. the conversation recorder), whether or
+        not the console is connected or the publish succeeds.
+        """
         self._send = send
+        self._listeners = list(listeners or [])
         self._seq = 0
         self.transcript: List[Dict[str, Any]] = []  # finals + latest interims, for snapshots
         self.sent: List[Dict[str, Any]] = []
@@ -34,6 +43,11 @@ class EventPublisher:
                 asyncio.ensure_future(self._swallow(result))
         except Exception:  # a failed publish must never break the call
             logger.exception("publish failed for %s", type_)
+        for listener in self._listeners:
+            try:
+                listener(event)
+            except Exception:  # a listener must never break the call either
+                logger.exception("event listener failed for %s", type_)
         return event
 
     @staticmethod
