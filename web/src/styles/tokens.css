@@ -162,6 +162,65 @@
   --dur-fast: 120ms;
   --dur-base: 220ms;
   --dur-slow: 420ms;
+
+  color-scheme: light;
+}
+
+/* ============================================================
+   Night sky — dark theme. Set by <html data-theme="dark">.
+   ============================================================
+   Steps keep their role and flip their value, so every rule that
+   uses them adapts without being touched:
+   - ink becomes navy neutrals (0/25/50 = surfaces, 900 = text);
+   - hue tints (-50/-100/-200) become low-alpha washes on navy;
+   - hue text steps (-600/-700) become light, readable shades.
+   Brand mid steps (-300…-500) and deep steps (-800…-950) do not
+   change, so the brand blue, the sun orb and the panel cells stay
+   exactly as they are. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --ink-0:    #0D1836;   /* surface */
+  --ink-25:   #060F2A;   /* page: the night sky */
+  --ink-50:   #091230;   /* sunken */
+  --ink-100:  #16224A;
+  --ink-200:  #22305A;
+  --ink-300:  #33436E;
+  --ink-400:  #77808F;
+  --ink-500:  #9EA3AE;
+  --ink-600:  #C9C8C0;
+  --ink-700:  #DEDCD4;
+  --ink-800:  #ECEAE3;
+  --ink-900:  #F4F2EB;
+
+  --blue-50:  rgba(79, 134, 255, .14);
+  --blue-100: rgba(79, 134, 255, .22);
+  --blue-200: rgba(79, 134, 255, .32);
+  --blue-600: #7FA8FF;
+  --blue-700: #9DBBFF;
+
+  --sun-50:   rgba(255, 193, 31, .12);
+  --sun-100:  rgba(255, 193, 31, .22);
+  --sun-200:  rgba(255, 193, 31, .32);
+  --sun-600:  #FFC11F;
+  --sun-700:  #FFD24A;
+
+  --leaf-50:  rgba(43, 168, 74, .16);
+  --leaf-600: #5CCB78;
+  --rust-50:  rgba(217, 82, 43, .16);
+  --rust-600: #F08A68;
+
+  --fg-on-accent: #0E0D0B;   /* text on yellow stays dark */
+  --fg-link:      var(--blue-300);
+  --border-brand: var(--blue-400);
+
+  /* Navy shadows vanish on navy: use black, stronger. Cards also lift by surface and border. */
+  --shadow-xs: 0 1px 1px rgba(0, 0, 0, 0.24);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.32), 0 1px 1px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.32), 0 1px 2px rgba(0, 0, 0, 0.22);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.24);
+  --shadow-xl: 0 24px 60px rgba(0, 0, 0, 0.5);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -1px 0 rgba(0, 0, 0, 0.2);
 }
 
 /* ============================================================

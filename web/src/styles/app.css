@@ -164,7 +164,7 @@ body { margin: 0; min-height: 100vh; }
 .tab[aria-current="page"] { background: var(--bg-surface); color: var(--fg-1); box-shadow: var(--shadow-sm); }
 .tab:focus-visible { outline: none; box-shadow: var(--shadow-glow-blue); }
 .tab__count { min-width: 20px; padding: 0 6px; border-radius: var(--radius-pill); background: var(--ink-100); color: var(--fg-2); font-size: var(--text-2xs); line-height: 18px; text-align: center; }
-.tab[aria-current="page"] .tab__count { background: var(--ink-900); color: var(--fg-on-brand); }
+.tab[aria-current="page"] .tab__count { background: var(--ink-900); color: var(--ink-0); }
 .tools { display: flex; align-items: center; gap: 2px; padding-right: var(--space-3); border-right: 1px solid var(--border-2); }
 .icon-btn {
   display: grid; place-items: center; width: 38px; height: 38px; border-radius: var(--radius-md);
@@ -185,7 +185,7 @@ body { margin: 0; min-height: 100vh; }
 .btn:active:not(:disabled) { transform: scale(.97); }
 .btn:disabled { opacity: .4; cursor: not-allowed; }
 .btn:focus-visible { outline: none; box-shadow: var(--shadow-glow-blue); }
-.btn--primary { background: var(--ink-900); color: var(--fg-on-brand); min-width: 128px; }
+.btn--primary { background: var(--ink-900); color: var(--ink-0); min-width: 128px; }
 .btn--primary:hover:not(:disabled) { background: var(--ink-700); }
 .btn--primary[data-live="true"] { background: var(--rust-500); }
 .btn--primary[data-live="true"]:hover:not(:disabled) { background: var(--rust-600); }
@@ -713,4 +713,57 @@ body:has(.intro[open]) { overflow: hidden; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+/* ---------- Dark ----------
+   Most of night sky comes from tokens.css. These are the spots that paint with
+   literal colours: their washes are dimmed so light text reads on top. */
+:root[data-theme="dark"] .note {
+  background:
+    radial-gradient(120% 90% at 0% 0%, rgba(127, 168, 255, .34) 0%, rgba(127, 168, 255, 0) 60%),
+    radial-gradient(90% 80% at 100% 100%, rgba(255, 193, 31, .36) 0%, rgba(255, 193, 31, 0) 65%),
+    radial-gradient(70% 70% at 85% 10%, rgba(43, 168, 74, .12) 0%, rgba(43, 168, 74, 0) 70%),
+    var(--bg-surface);
+  background-size: 140% 140%;
+}
+:root[data-theme="dark"] .intro__glow {
+  background:
+    radial-gradient(42% 60% at 50% 0%, rgba(255, 193, 31, .28) 0%, rgba(255, 226, 130, .1) 45%, rgba(255, 226, 130, 0) 75%),
+    radial-gradient(80% 90% at 50% -10%, rgba(127, 168, 255, .16) 0%, rgba(179, 203, 255, .06) 50%, rgba(255, 255, 255, 0) 80%);
+}
+:root[data-theme="dark"] .intro::backdrop { background: rgba(2, 6, 18, .66); }
+
+/* Things that keep their literal colour at night. */
+/* The sun stays a sun: literal highlight and rim (their scale steps are tints/text in dark),
+   and a soft glow instead of a halo ring, which turns muddy on navy. */
+:root[data-theme="dark"] .orb__core {
+  background: radial-gradient(circle at 34% 30%, #FFF1BF 0%, var(--sun-300) 26%, var(--sun-400) 50%, var(--sun-500) 78%, #C8830A 100%);
+}
+:root[data-theme="dark"] .orb--lg .orb__core {
+  box-shadow:
+    0 0 0 10px rgba(255, 193, 31, .07),
+    0 0 40px rgba(255, 193, 31, .36),
+    inset -6px -10px 18px rgba(200, 131, 10, .32),
+    inset 6px 8px 14px rgba(255, 255, 255, .55);
+}
+/* Caller lines: deep navy text would sit on navy. */
+:root[data-theme="dark"] .msg--caller .msg__bubble { color: var(--fg-1); }
+/* The panel: an aluminium frame and stand that read against the night, and real blue for half-charged cells. */
+:root[data-theme="dark"] .panel__face { background: var(--ink-400); }
+:root[data-theme="dark"] .panel__stand,
+:root[data-theme="dark"] .panel__stand::after { background: var(--ink-400); }
+:root[data-theme="dark"] .panel__cell.is-partial { background-color: #173E9E; }
+/* Reversed (white) logo: the indigo wordmark is too faint on navy. */
+:root[data-theme="dark"] .sidebar__brand img,
+:root[data-theme="dark"] .topbar__logo { filter: brightness(0) invert(1); }
+/* End call / danger: white on rust, and hovers keep the deep rust (rust-600 is a text shade at night). */
+:root[data-theme="dark"] .btn--primary[data-live="true"] { color: var(--fg-on-brand); }
+:root[data-theme="dark"] .btn--primary[data-live="true"]:hover:not(:disabled),
+:root[data-theme="dark"] .btn--danger:hover:not(:disabled) { background: #B23F1E; }
+/* Same bloom at night, starting from the half-charged blue rather than the pale text shade. */
+:root[data-theme="dark"] .panel__cell.is-full { animation-name: cell-bloom-night; }
+@keyframes cell-bloom-night {
+  0% { background-color: #173E9E; box-shadow: none; }
+  22% { background-color: var(--blue-400); box-shadow: inset 0 0 0 1px #FFE282, 0 0 16px rgba(255, 193, 31, .8); }
+  100% { background-color: var(--blue-500); box-shadow: inset 0 0 0 1px rgba(255, 226, 130, .55), 0 0 10px rgba(255, 193, 31, .35); }
 }
