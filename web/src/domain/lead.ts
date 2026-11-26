@@ -103,3 +103,33 @@ export const isCaptured = (lead: Lead, field: LeadField) => lead[field] !== unde
 /** How many lead fields have an answer. `false` is an answer, so it counts. */
 export const capturedCount = (lead: Lead) =>
   LEAD_GROUPS.reduce((n, g) => n + g.fields.filter(({ field }) => isCaptured(lead, field)).length, 0);
+
+/**
+ * Answers that rule a lead out: the wrong person, no interest, or a roof
+ * the caller cannot put panels on. Preferences (no loan, no subsidy) are not failures.
+ */
+export function isBlocking(field: LeadField, value: unknown): boolean {
+  switch (field) {
+    case "identity_confirmed":
+    case "solar_interest":
+    case "roof_access":
+      return value === false;
+    case "roof_ownership":
+      return value === "rented";
+    default:
+      return false;
+  }
+}
+
+export type CellState = "empty" | "partial" | "full";
+
+/** One solar-panel cell per field group: lit when the group is captured, half-lit when partly. */
+export const panelCells = (lead: Lead): CellState[] =>
+  LEAD_GROUPS.map((g) => {
+    const n = g.fields.filter(({ field }) => isCaptured(lead, field)).length;
+    return n === 0 ? "empty" : n === g.fields.length ? "full" : "partial";
+  });
+
+/** Indexes of cells that have just become full, to twinkle once. */
+export const newlyFull = (prev: CellState[], next: CellState[]): number[] =>
+  next.flatMap((s, i) => (s === "full" && prev[i] !== "full" ? [i] : []));

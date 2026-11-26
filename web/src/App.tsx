@@ -3,20 +3,27 @@ import { AgentSidebar } from "./components/AgentSidebar";
 import { CallActions } from "./components/CallActions";
 import { CallProgress } from "./components/CallProgress";
 import { Conversation } from "./components/Conversation";
+import { IntroDialog } from "./components/IntroDialog";
 import { LeadCard } from "./components/LeadCard";
 import { PerformanceBand } from "./components/PerformanceBand";
 import { TopBar } from "./components/TopBar";
 import { findScenario } from "./sources/demo/demoSource";
 import { DEFAULT_SCENARIO_ID } from "./sources/demo/scenarios";
 import type { CallOptions } from "./sources";
+import { unlockAudio } from "./state/sound";
 import { useCall } from "./state/useCall";
 import { useHealth } from "./state/useHealth";
+import { useSoundPreference, useStepSounds } from "./state/useStepSounds";
 
 export function App() {
   const { view, start, end, requestHandoff } = useCall();
   const active = view.phase === "connecting" || view.phase === "live";
   const health = useHealth(active);
   const [phoneError, setPhoneError] = useState<string | null>(null);
+  // Shown on every visit, as the first thing anyone sees.
+  const [introOpen, setIntroOpen] = useState(true);
+  const [soundOn, setSoundOn] = useSoundPreference();
+  useStepSounds(view, soundOn);
 
   const [options, setOptions] = useState<CallOptions>({
     source: "demo",
@@ -36,15 +43,30 @@ export function App() {
 
   const callerName = options.source === "demo" ? findScenario(options.scenarioId).caller.name : "Caller";
 
+  const startCall = (opts: CallOptions) => {
+    unlockAudio();
+    void start(opts);
+  };
+  const closeIntro = () => {
+    unlockAudio();
+    setIntroOpen(false);
+  };
+  const watchDemo = () => {
+    const demo: CallOptions = { ...options, source: "demo", scenarioId: DEFAULT_SCENARIO_ID };
+    setOptions(demo);
+    setIntroOpen(false);
+    startCall(demo);
+  };
+
   return (
     <div className="shell">
       <AgentSidebar view={view} health={health} options={options} onOptionsChange={setOptions} phoneError={phoneError} />
       <div className="main">
-        <TopBar source={options.source}>
+        <TopBar source={options.source} soundOn={soundOn} onToggleSound={() => setSoundOn(!soundOn)} onAbout={() => setIntroOpen(true)}>
           <CallActions
             view={view}
             options={options}
-            onStart={() => void start(options)}
+            onStart={() => startCall(options)}
             onEnd={() => end()}
             onHandoff={() => void requestHandoff()}
             onPhoneError={setPhoneError}
@@ -57,6 +79,7 @@ export function App() {
           <PerformanceBand view={view} />
         </main>
       </div>
+      <IntroDialog open={introOpen} callActive={active} soundOn={soundOn} onClose={closeIntro} onWatchDemo={watchDemo} />
     </div>
   );
 }
