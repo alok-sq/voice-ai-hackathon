@@ -8,7 +8,7 @@ server/   FastAPI backend: room tokens, SIP dial-out, ending calls. Holds all se
 tests/    Backend tests.
 ```
 
-## Run the console (demo mode, no keys)
+## Run the console
 
 ```bash
 cd web
@@ -16,7 +16,13 @@ npm install
 npm run dev          # http://localhost:5173
 ```
 
-Pick **Demo**, choose a scenario and press **Start call**. A scripted Hindi call plays through the same event pipeline as a live call, so the UI behaves identically.
+The console has three sources:
+
+| Source | What it does | Needs |
+|---|---|---|
+| **Demo** | You talk to the real agent through your browser microphone. | Backend, agent worker, LiveKit keys |
+| **Live call** | The backend dials a team test number and the console listens in. | Same, plus `SIP_OUTBOUND_TRUNK_ID` and `TEST_NUMBER_ALLOWLIST` |
+| **Scripted** | Plays a pre-written Hindi call through the same screens. | Nothing (offline fallback) |
 
 Checks: `npm test` (contract + call-state tests), `npm run typecheck`, `npm run build`.
 
@@ -28,7 +34,12 @@ Checks: `npm test` (contract + call-state tests), `npm run typecheck`, `npm run 
    python3 -m venv .venv && .venv/bin/pip install -r server/requirements.txt
    .venv/bin/uvicorn server.main:app --port 8000
    ```
-3. Start the console (`npm run dev` in `web/`). Vite proxies `/api` to `http://localhost:8000` (override with `BACKEND_URL`). The console polls `GET /api/health`; **Live agent** becomes selectable once LiveKit is configured, and the console lists any missing settings by name.
+3. Start the agent worker (needs Python 3.10+; set up once with `uv venv --python 3.12 .venv-agent && uv pip install --python .venv-agent/bin/python -r src/requirements.txt`):
+   ```bash
+   PYTHONPATH=src .venv-agent/bin/python -m agent.agent dev
+   ```
+   It registers as `AGENT_NAME` and is dispatched into each call room by the backend. STT is Sarvam, LLM is Claude (`LLM_MODEL`), TTS is Cartesia Sonic. Each finished call writes `out/<room>.json`.
+4. Start the console (`npm run dev` in `web/`). Vite proxies `/api` to `http://localhost:8000` (override with `BACKEND_URL`). The console polls `GET /api/health`; **Demo** becomes selectable once LiveKit is configured and **Live call** once the SIP trunk is set, and the console lists any missing settings by name.
 
 For the demo on stage, use `npm run build && npm run preview` (port 4173, same proxy).
 
@@ -70,5 +81,5 @@ Lead values: `identity_confirmed`, `solar_interest`, `roof_access`, `loan_intere
 
 ## Not done yet
 
-- The agent worker (plan Tasks 1-6): live mode needs it to publish the events above.
+- Agent worker is built (plan Tasks 1-6) but has not run a full call yet. Still open: STT benchmark (Task 7), scenario evals (Task 8), a real Cartesia Hindi voice id, cost rates, telephony tuning.
 - More demo scenarios (interruption, silence, subsidy question, "ask my son", do-not-call) and replay of recorded calls.

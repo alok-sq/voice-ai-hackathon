@@ -17,22 +17,21 @@ export function App() {
   const health = useHealth(active);
 
   const [options, setOptions] = useState<CallOptions>({
-    source: "demo",
-    mode: "browser",
+    source: "scripted",
     language: "hi",
     phone: "",
     scenarioId: DEFAULT_SCENARIO_ID,
   });
 
-  // Prefer live the first time the backend reports it is ready; after that the choice is yours.
+  // Prefer Demo (talk to the real agent) the first time the backend reports it is ready; after that the choice is yours.
   const autoSelected = useRef(false);
   useEffect(() => {
     if (autoSelected.current || !health) return;
     autoSelected.current = true;
-    if (health.livekit) setOptions((o) => ({ ...o, source: "live" }));
+    if (health.livekit) setOptions((o) => ({ ...o, source: "demo" }));
   }, [health]);
 
-  const callerName = options.source === "demo" ? findScenario(options.scenarioId).caller.name : "Caller";
+  const callerName = options.source === "scripted" ? findScenario(options.scenarioId).caller.name : "Caller";
 
   return (
     <div className="page">

@@ -1,8 +1,7 @@
-import { FlaskConical, Radio } from "lucide-react";
+import { FlaskConical, Mic, PhoneCall } from "lucide-react";
 import type { SourceKind } from "../sources";
 
 export function TopBar({ source }: { source: SourceKind }) {
-  const live = source === "live";
   return (
     <header className="topbar">
       <div className="topbar__brand">
@@ -11,8 +10,8 @@ export function TopBar({ source }: { source: SourceKind }) {
         <span className="topbar__title">Voice agent console</span>
       </div>
       <span className="chip" data-source={source}>
-        {live ? <Radio size={16} /> : <FlaskConical size={16} />}
-        {live ? "Live agent" : "Demo mode"}
+        {source === "live" ? <PhoneCall size={16} /> : source === "demo" ? <Mic size={16} /> : <FlaskConical size={16} />}
+        {source === "live" ? "Live call" : source === "demo" ? "Demo · talk to the agent" : "Scripted playback"}
       </span>
     </header>
   );

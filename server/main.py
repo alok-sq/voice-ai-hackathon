@@ -98,7 +98,8 @@ async def token(req: TokenRequest):
     from livekit import api  # imported late so /api/health works without the package
 
     room = req.room or _new_room()
-    identity = f"console-{secrets.token_hex(3)}"
+    # The agent treats `console-*` (browser mic) and SIP participants as the caller. `listener-*` never is.
+    identity = f"{'listener' if req.listenOnly else 'console'}-{secrets.token_hex(3)}"
     grants = api.VideoGrants(
         room_join=True,
         room=room,

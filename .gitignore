@@ -8,3 +8,6 @@ node_modules/
 web/dist/
 web/.env.local
 *.tsbuildinfo
+.venv-agent/
+.uv-python/
+.uv-cache/

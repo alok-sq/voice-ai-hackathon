@@ -2,15 +2,19 @@ import type { CallEvent } from "../contract/events";
 
 export type Language = "hi" | "mr" | "ta" | "kn" | "en";
 export type ConnectMode = "browser" | "phone";
-export type SourceKind = "live" | "demo";
+/**
+ * demo     talk to the real agent through your browser microphone
+ * live     the backend dials a real test number; the console listens in
+ * scripted offline playback of a pre-written call (no keys, no agent)
+ */
+export type SourceKind = "demo" | "live" | "scripted";
 
 export interface CallOptions {
   source: SourceKind;
-  mode: ConnectMode;
   language: Language;
-  /** Test number, phone mode only. */
+  /** Test number, live (phone) source only. */
   phone: string;
-  /** Demo scenario id, demo source only. */
+  /** Scenario id, scripted source only. */
   scenarioId: string;
 }
 

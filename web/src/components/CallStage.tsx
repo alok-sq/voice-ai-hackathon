@@ -1,4 +1,4 @@
-import { CircleAlert, FlaskConical, MapPin, Mic, Phone, PhoneCall, PhoneOff, Radio, UserRoundCheck } from "lucide-react";
+import { CircleAlert, FlaskConical, MapPin, Mic, Phone, PhoneCall, PhoneOff, UserRoundCheck } from "lucide-react";
 import { useState } from "react";
 import { AGENT, type CallerProfile } from "../domain/agent";
 import { findScenario } from "../sources/demo/demoSource";
@@ -39,11 +39,15 @@ interface Props {
   onHandoff: () => void;
 }
 
-function liveHint(health: Health | null): string | null {
+function sourceHint(health: Health | null, source: CallOptions["source"]): string | null {
+  if (source === "scripted") return "Plays a pre-written call. No agent, no microphone, no keys.";
   if (!health) return "Checking the backend.";
-  if (!health.reachable) return "Backend is not running. Start it to make live calls.";
-  if (!health.livekit) return "Live calls need the LiveKit keys in .env. Check /api/health for which are missing.";
-  return null;
+  if (!health.reachable) return "Backend is not running. Start it to talk to the agent.";
+  if (!health.livekit) return "This needs the LiveKit keys in .env. Check /api/health for which are missing.";
+  if (source === "live" && !health.phone)
+    return "Phone calls need SIP_OUTBOUND_TRUNK_ID and TEST_NUMBER_ALLOWLIST in .env. Check /api/health.";
+  if (source === "demo") return "Talk to the real agent through your microphone. Use headphones so it does not hear itself.";
+  return "The backend dials the test number below and this console listens in.";
 }
 
 function ExpectedOutcome({ scenarioId }: { scenarioId: string }) {
@@ -57,8 +61,8 @@ function ExpectedOutcome({ scenarioId }: { scenarioId: string }) {
 }
 
 function callerFor(options: CallOptions): CallerProfile {
-  if (options.source === "demo") return findScenario(options.scenarioId).caller;
-  if (options.mode === "phone")
+  if (options.source === "scripted") return findScenario(options.scenarioId).caller;
+  if (options.source === "live")
     return { name: "Test caller", phone: options.phone ? maskPhone(options.phone) : "Number not set", city: "Phone line", source: "Team test number" };
   return { name: "You", phone: "Browser microphone", city: "This device", source: "Live test" };
 }
@@ -66,12 +70,12 @@ function callerFor(options: CallOptions): CallerProfile {
 export function CallStage({ view, health, options, onOptionsChange, onStart, onEnd, onHandoff }: Props) {
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const active = view.phase === "connecting" || view.phase === "live";
-  const isLive = options.source === "live";
-  const phoneMode = isLive && options.mode === "phone";
+  const scripted = options.source === "scripted";
+  const phoneMode = options.source === "live";
   const elapsed = useElapsed(view.startedAt, view.endedAt);
   const orb = orbState(view);
   const caller = callerFor(options);
-  const hint = liveHint(health);
+  const hint = sourceHint(health, options.source);
   const set = (patch: Partial<CallOptions>) => onOptionsChange({ ...options, ...patch });
 
   const handleCall = () => {
@@ -139,7 +143,7 @@ export function CallStage({ view, health, options, onOptionsChange, onStart, onE
         <h6 className="setup__title">Call setup</h6>
         {active ? (
           <p className="setup__summary">
-            {isLive ? (phoneMode ? "Live · Phone" : "Live · Browser") : `Demo · ${findScenario(options.scenarioId).title}`} ·{" "}
+            {scripted ? `Scripted · ${findScenario(options.scenarioId).title}` : phoneMode ? "Live · Phone call" : "Demo · Browser microphone"} ·{" "}
             {languageLabel(options.language)}
           </p>
         ) : (
@@ -151,14 +155,15 @@ export function CallStage({ view, health, options, onOptionsChange, onStart, onE
                 value={options.source}
                 onChange={(source) => set({ source })}
                 options={[
-                  { value: "live", label: "Live agent", icon: <Radio size={16} />, disabled: !health?.livekit },
-                  { value: "demo", label: "Demo", icon: <FlaskConical size={16} /> },
+                  { value: "demo", label: "Demo", icon: <Mic size={16} />, disabled: !health?.livekit },
+                  { value: "live", label: "Live call", icon: <Phone size={16} />, disabled: !health?.phone },
+                  { value: "scripted", label: "Scripted", icon: <FlaskConical size={16} /> },
                 ]}
               />
               {hint && <small>{hint}</small>}
             </div>
 
-            {!isLive && (
+            {scripted && (
               <div className="field">
                 <label htmlFor="scenario">Scenario</label>
                 <select id="scenario" value={options.scenarioId} onChange={(e) => set({ scenarioId: e.target.value })}>
@@ -183,21 +188,6 @@ export function CallStage({ view, health, options, onOptionsChange, onStart, onE
                 ))}
               </select>
             </div>
-
-            {isLive && (
-              <div className="field">
-                <span className="label">Connect through</span>
-                <Segmented
-                  label="Connection type"
-                  value={options.mode}
-                  onChange={(mode) => set({ mode })}
-                  options={[
-                    { value: "browser", label: "Browser", icon: <Mic size={16} /> },
-                    { value: "phone", label: "Phone", icon: <Phone size={16} />, disabled: !health?.phone },
-                  ]}
-                />
-              </div>
-            )}
 
             {phoneMode && (
               <div className="field">

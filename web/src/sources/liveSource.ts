@@ -9,7 +9,7 @@ import {
 } from "livekit-client";
 import { COMMANDS_TOPIC, EVENTS_TOPIC, parseEvent, type ConsoleCommand } from "../contract/events";
 import { endRoom, getRoomToken, placePhoneCall } from "./api";
-import { throwIfAborted, type CallOptions, type CallSource } from "./types";
+import { throwIfAborted, type CallOptions, type CallSource, type ConnectMode } from "./types";
 
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();
@@ -17,10 +17,10 @@ const encoder = new TextEncoder();
 /**
  * Joins the agent's LiveKit room and turns its data messages into CallEvents.
  *
- * Browser mode: you talk to the agent through your mic.
- * Phone mode:   the backend dials a test number; you join listen-only to watch.
+ * Browser mode (Demo):  you talk to the agent through your mic.
+ * Phone mode (Live):     the backend dials a test number; you join listen-only to watch.
  */
-export function createLiveSource(opts: Pick<CallOptions, "mode" | "language" | "phone">): CallSource {
+export function createLiveSource(opts: Pick<CallOptions, "language" | "phone"> & { mode: ConnectMode }): CallSource {
   let room: Room | null = null;
   let roomName: string | null = null;
   let stopped = false;
