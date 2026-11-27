@@ -12,7 +12,7 @@ import { SummaryCard } from "./components/SummaryCard";
 import { TopBar } from "./components/TopBar";
 import { findScenario } from "./sources/demo/demoSource";
 import { DEFAULT_SCENARIO_ID } from "./sources/demo/scenarios";
-import type { CallOptions } from "./sources";
+import { phoneAgentLabel, type CallOptions } from "./sources";
 import { callerFor } from "./state/caller";
 import { unlockAudio } from "./state/sound";
 import { useCall } from "./state/useCall";
@@ -39,6 +39,7 @@ export function App() {
     source: "scripted",
     language: "hi",
     phone: "",
+    phoneAgent: "demo",
     scenarioId: DEFAULT_SCENARIO_ID,
   });
 
@@ -54,7 +55,12 @@ export function App() {
   const { sessions, clear } = useSessions(view, {
     source: options.source,
     language: options.language,
-    scenarioTitle: options.source === "scripted" ? findScenario(options.scenarioId).title : null,
+    scenarioTitle:
+      options.source === "scripted"
+        ? findScenario(options.scenarioId).title
+        : options.source === "live"
+          ? phoneAgentLabel(options.phoneAgent)
+          : null,
     caller,
   });
   const finished = view.phase === "ended" || view.phase === "error";
@@ -90,6 +96,7 @@ export function App() {
       <div className="main">
         <TopBar
           source={options.source}
+          liveAgent={options.source === "live" ? phoneAgentLabel(options.phoneAgent) : undefined}
           tab={route.name === "call" ? "call" : "history"}
           historyCount={sessions.length}
           onTab={(tab) => setRoute(tab === "call" ? { name: "call" } : { name: "history" })}
@@ -102,6 +109,7 @@ export function App() {
           <CallActions
             view={view}
             options={options}
+            health={health}
             onStart={() => startCall(options)}
             onEnd={() => end()}
             onHandoff={() => void requestHandoff()}

@@ -6,17 +6,35 @@ export type ConnectMode = "browser" | "phone";
  * demo     talk to the cascaded agent (Sarvam → Gemini → Cartesia) through the browser mic
  * demo_v2  talk to Gemini native audio (speech in, speech out) through the browser mic
  * demo_v3  talk to the agent saved in the Cartesia dashboard; that agent answers
+ * demo_v4  talk to the agent saved in the ElevenLabs dashboard; that agent answers
  * live     the backend dials a real test number; the console listens in
  * scripted offline playback of a pre-written call (no keys, no agent)
  */
-export type SourceKind = "demo" | "demo_v2" | "demo_v3" | "live" | "scripted";
+export type SourceKind = "demo" | "demo_v2" | "demo_v3" | "demo_v4" | "live" | "scripted";
 export type Pipeline = "cascade" | "s2s";
+/** Which demo answers when the source is a phone call. */
+export type PhoneAgent = "demo" | "demo_v2" | "demo_v3" | "demo_v4";
+
+export function phoneAgentLabel(agent: PhoneAgent): string {
+  switch (agent) {
+    case "demo":
+      return "Demo";
+    case "demo_v2":
+      return "Demo v2";
+    case "demo_v3":
+      return "Demo v3";
+    case "demo_v4":
+      return "Demo v4";
+  }
+}
 
 export interface CallOptions {
   source: SourceKind;
   language: Language;
   /** Test number, live (phone) source only. */
   phone: string;
+  /** Which agent answers a live phone call. */
+  phoneAgent: PhoneAgent;
   /** Scenario id, scripted source only. */
   scenarioId: string;
 }

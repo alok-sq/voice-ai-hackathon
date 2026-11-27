@@ -9,12 +9,12 @@ const WATCH: { icon: ReactNode; title: string; body: string }[] = [
   {
     icon: <SunMedium size={18} />,
     title: "The lead fills in",
-    body: "Each step lights up as Pari asks it, and the solar panel charges as answers come in. You hear a chime when a step passes.",
+    body: `Each step lights up as ${AGENT.name} asks it, and the solar panel charges as answers come in. You hear a chime when a step passes.`,
   },
   {
     icon: <ShieldCheck size={18} />,
     title: "Hard moments, handled",
-    body: "Interruptions, silence and price questions she won't answer are flagged in the conversation as they happen.",
+    body: "Interruptions, silence and price questions he won't answer are flagged in the conversation as they happen.",
   },
   {
     icon: <Gauge size={18} />,
@@ -33,7 +33,7 @@ interface Props {
 }
 
 /**
- * First thing anyone sees: who Pari is, what to watch, and one click to a call.
+ * First thing anyone sees: who Ajay is, what to watch, and one click to a call.
  * A native modal <dialog>, so focus, Escape and the inert page behind come from the browser.
  */
 export function IntroDialog({ open, callActive, soundOn, onClose, onWatchDemo }: Props) {
@@ -88,7 +88,7 @@ export function IntroDialog({ open, callActive, soundOn, onClose, onWatchDemo }:
           </ol>
         </section>
 
-        <ul className="intro__langs" aria-label="Languages Pari speaks">
+        <ul className="intro__langs" aria-label={`Languages ${AGENT.name} speaks`}>
           {LANGUAGES.map((l) => (
             <li key={l} className="intro__lang">
               {l}

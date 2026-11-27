@@ -54,7 +54,7 @@ describe("summaryText", () => {
       usage: { costInr: 2.4 },
     });
     expect(summaryText({ view, callerName: "Mr. Nair", city: "Pune", language: "Hindi" })).toBe(
-      ["Pari call · Qualified", "Mr. Nair · Pune · Hindi · 00:26", "Survey booked: Tomorrow, 5 pm", "₹3,000/month", "Median reply 730 ms · Cost ₹2.40 · 1 of 8 steps"].join("\n"),
+      ["Ajay call · Qualified", "Mr. Nair · Pune · Hindi · 00:26", "Survey booked: Tomorrow, 5 pm", "₹3,000/month", "Median reply 730 ms · Cost ₹2.40 · 1 of 8 steps"].join("\n"),
     );
   });
 });

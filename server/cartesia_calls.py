@@ -22,7 +22,6 @@ from agent import normalise as nz  # noqa: E402
 from agent.events import EventPublisher  # noqa: E402
 from agent.tools import CallSession  # noqa: E402
 
-CALL_ID_RE = re.compile(r"^cart-[0-9a-f]{8}$")
 # The caller's reply is saved only for the field the agent just asked about.
 # More specific questions are listed first.
 _QUESTION_FIELDS = (
@@ -78,20 +77,24 @@ def _arg(params: Any, *keys: str) -> str:
 
 
 class CartesiaCalls:
-    def __init__(self) -> None:
+    def __init__(self, prefix: str = "cart", pipeline: str = "cartesia") -> None:
+        self._prefix = prefix
+        self._pipeline = pipeline
+        self._id_re = re.compile(rf"^{re.escape(prefix)}-[0-9a-f]{{8}}$")
         self._lock = threading.Lock()
         self._calls: dict[str, dict[str, Any]] = {}
 
     def open(self, language: str) -> tuple[str, list[dict[str, Any]]]:
         import secrets
 
-        call_id = f"cart-{secrets.token_hex(4)}"
+        call_id = f"{self._prefix}-{secrets.token_hex(4)}"
         publisher = EventPublisher(lambda _payload, _topic: None)
         session = CallSession(call_id, language, publisher, out_dir=os.getenv("OUT_DIR", "out"))
         publisher.emit("state", state=session.flow.current.value)
         with self._lock:
             self._calls[call_id] = {
                 "session": session, "publisher": publisher, "cursor": 0, "tools": set(), "question": "",
+                "seen": 0, "vendor": "",
             }
         return call_id, self._drain(call_id)
 
@@ -115,6 +118,27 @@ class CartesiaCalls:
         note = self._apply_tool(record, {"name": name, "arguments": arguments, "id": tool_id})
         return {"result": note, "events": self._drain(call_id)}
 
+    def bind_vendor(self, call_id: str, vendor_id: str) -> None:
+        self._get(call_id)["vendor"] = vendor_id
+
+    def vendor_id(self, call_id: str) -> str:
+        vendor = str(self._get(call_id).get("vendor") or "")
+        if not vendor:
+            raise KeyError(call_id)
+        return vendor
+
+    def ingest(self, call_id: str, lines: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Apply only transcript lines that were not applied on an earlier poll."""
+        record = self._get(call_id)
+        seen = int(record.get("seen") or 0)
+        fresh = lines[seen:] if 0 <= seen <= len(lines) else []
+        events: list[dict[str, Any]] = []
+        for line in fresh:
+            role = "user" if line.get("role") == "caller" else "assistant"
+            events.extend(self.turn(call_id, role, str(line.get("text") or ""), line.get("tools") or [])["events"])
+        record["seen"] = max(seen, len(lines))
+        return events
+
     def finish(self, call_id: str, reason: str = "") -> dict[str, Any]:
         record = self._get(call_id)
         session: CallSession = record["session"]
@@ -122,12 +146,12 @@ class CartesiaCalls:
             session.end_call(session.default_outcome(), reason or "call ended")
         if isinstance(session.result, dict):
             session.result["transcript"] = record["publisher"].transcript
-            session.result["pipeline"] = "cartesia"
+            session.result["pipeline"] = self._pipeline
             session._write(session.result)
         return {"outcome": (session.result or {}).get("outcome"), "events": self._drain(call_id)}
 
     def _get(self, call_id: str) -> dict[str, Any]:
-        if not CALL_ID_RE.match(call_id or ""):
+        if not self._id_re.match(call_id or ""):
             raise KeyError(call_id)
         with self._lock:
             record = self._calls.get(call_id)
@@ -271,3 +295,4 @@ def _save_explicit(session: CallSession, raw: Any) -> str:
 
 
 CALLS = CartesiaCalls()
+ELEVEN_CALLS = CartesiaCalls("elab", "elevenlabs")

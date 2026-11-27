@@ -29,7 +29,7 @@ const happyPath: Scenario = {
   caller: { name: "Mr. Nair", phone: "+91 98••• ••521", city: "Pune", source: "Website enquiry" },
   script: [
     [600, [{ type: "system", text: "Agent joined. The call is recorded." }, { type: "state", state: "IDENTITY" }]],
-    [900, [agent("Namaste, main SolarSquare se bol rahi hoon. Yeh call record ho rahi hai. Kya meri baat Mr. Nair se ho rahi hai?")]],
+    [900, [agent("Namaste, main SolarSquare se Ajay bol raha hoon. Yeh call record ho rahi hai. Kya meri baat Mr. Nair se ho rahi hai?")]],
     [1900, [caller("Haan ji, bol raha hoon."), metric(740, 180, 310, 250), { type: "lead", field: "identity_confirmed", value: true }]],
     [1200, [{ type: "state", state: "INTEREST" }, agent("Aapne solar ke liye enquiry ki thi. Kya aap abhi bhi interested hain?")]],
     [1800, [caller("Haan, bill bahut aa raha hai."), metric(690, 170, 290, 230), { type: "lead", field: "solar_interest", value: true }]],
@@ -101,13 +101,13 @@ const happyPath: Scenario = {
 /* ---------- Robustness scenarios: the cases the brief says judges will test ---------- */
 
 const joined = (): CallEvent[] => [{ type: "system", text: "Agent joined. The call is recorded." }, { type: "state", state: "IDENTITY" }];
-const opener = (name: string) => agent(`Namaste, main SolarSquare se Pari bol rahi hoon. Yeh call record ho rahi hai. Kya meri baat ${name} se ho rahi hai?`);
+const opener = (name: string) => agent(`Namaste, main SolarSquare se Ajay bol raha hoon. Yeh call record ho rahi hai. Kya meri baat ${name} se ho rahi hai?`);
 const ended = (reason = "Agent ended the call"): CallEvent => ({ type: "call_ended", reason });
 
 const interruptsCodeMix: Scenario = {
   id: "interrupts-code-mix",
   title: "Interrupts and code-mixes",
-  description: "Busy caller, driving. Talks over Pari twice and says \"teen-saadhe teen hazaar\".",
+  description: "Busy caller, driving. Talks over Ajay twice and says \"teen-saadhe teen hazaar\".",
   caller: { name: "Mr. Sharma", phone: "+91 99••• ••208", city: "Nagpur", source: "Facebook lead form" },
   script: [
     [600, joined()],
@@ -151,7 +151,7 @@ const interruptsCodeMix: Scenario = {
 const subsidyQuestion: Scenario = {
   id: "subsidy-question",
   title: "Asks about subsidy",
-  description: "Pushes for a subsidy amount and savings. Pari deflects without stating any figure.",
+  description: "Pushes for a subsidy amount and savings. Ajay deflects without stating any figure.",
   caller: { name: "Mrs. Iyer", phone: "+91 98••• ••764", city: "Bengaluru", source: "Website enquiry" },
   script: [
     [600, joined()],
@@ -205,7 +205,7 @@ const subsidyQuestion: Scenario = {
 const silence: Scenario = {
   id: "silence",
   title: "Goes silent",
-  description: "The caller stops responding. Pari prompts twice, then books a callback.",
+  description: "The caller stops responding. Ajay prompts twice, then books a callback.",
   caller: { name: "Mr. Verma", phone: "+91 97••• ••119", city: "Indore", source: "Google ad" },
   script: [
     [600, joined()],
@@ -224,7 +224,7 @@ const silence: Scenario = {
 const askMySon: Scenario = {
   id: "ask-my-son",
   title: "\"Ask my son\"",
-  description: "His mother picks up. Pari records none of her answers and books a callback for the son.",
+  description: "His mother picks up. Ajay records none of her answers and books a callback for the son.",
   caller: { name: "Mr. Rao", phone: "+91 94••• ••352", city: "Hyderabad", source: "Website enquiry" },
   script: [
     [600, joined()],
@@ -255,7 +255,7 @@ const askMySon: Scenario = {
 const doNotCall: Scenario = {
   id: "do-not-call",
   title: "Do not call",
-  description: "Caller declines and asks not to be called again. Pari stops at once.",
+  description: "Caller declines and asks not to be called again. Ajay stops at once.",
   caller: { name: "Mr. Desai", phone: "+91 90••• ••481", city: "Ahmedabad", source: "Referral" },
   script: [
     [600, joined()],
@@ -272,7 +272,7 @@ const doNotCall: Scenario = {
 const wrongNumber: Scenario = {
   id: "wrong-number",
   title: "Wrong number",
-  description: "The number belongs to someone else. Pari apologises and closes the lead.",
+  description: "The number belongs to someone else. Ajay apologises and closes the lead.",
   caller: { name: "Ms. Fernandes", phone: "+91 93••• ••907", city: "Panaji", source: "Website enquiry" },
   script: [
     [600, joined()],
@@ -287,7 +287,7 @@ const wrongNumber: Scenario = {
 const notQualified: Scenario = {
   id: "not-qualified",
   title: "Not qualified",
-  description: "Tenant in a housing society with no roof access. Pari closes politely.",
+  description: "Tenant in a housing society with no roof access. Ajay closes politely.",
   caller: { name: "Mr. Khan", phone: "+91 96••• ••633", city: "Mumbai", source: "Instagram ad" },
   script: [
     [600, joined()],

@@ -20,9 +20,10 @@ const encoder = new TextEncoder();
  * Browser mode (Demo / Demo v2): you talk to the agent through your mic.
  * Phone mode (Live): the backend dials a test number; you join listen-only to watch.
  * pipeline s2s is Demo v2 (Gemini native audio); cascade is STT → LLM → TTS.
+ * On a phone call the chosen agent is sent with the dial, and the room join does not dispatch a second one.
  */
 export function createLiveSource(
-  opts: Pick<CallOptions, "language" | "phone"> & { mode: ConnectMode; pipeline?: Pipeline },
+  opts: Pick<CallOptions, "language" | "phone"> & { mode: ConnectMode; pipeline?: Pipeline; phoneAgent?: CallOptions["phoneAgent"] },
 ): CallSource {
   let room: Room | null = null;
   let roomName: string | null = null;
@@ -40,10 +41,12 @@ export function createLiveSource(
   return {
     async start({ emit, onEnd, signal }) {
       if (opts.mode === "phone") {
-        roomName = (await placePhoneCall(opts.phone, opts.language, signal)).room;
+        const started = await placePhoneCall(opts.phone, opts.language, opts.phoneAgent ?? "demo", signal);
         throwIfAborted(signal);
+        if (!started.room) throw new Error("The phone call did not start.");
+        roomName = started.room;
       }
-      const pipeline: Pipeline = opts.mode === "phone" ? "cascade" : (opts.pipeline ?? "cascade");
+      const pipeline: Pipeline = opts.pipeline ?? "cascade";
       const { url, token, room: joined } = await getRoomToken(
         opts.language,
         roomName,

@@ -67,7 +67,9 @@ describe("sourceLabel", () => {
     expect(sourceLabel("demo", null)).toBe("Demo · cascaded");
     expect(sourceLabel("demo_v2", null)).toBe("Demo v2 · speech to speech");
     expect(sourceLabel("demo_v3", null)).toBe("Demo v3 · Cartesia agent");
+    expect(sourceLabel("demo_v4", null)).toBe("Demo v4 · ElevenLabs agent");
     expect(sourceLabel("live", null)).toBe("Live call");
+    expect(sourceLabel("live", "Demo v4")).toBe("Live call · Demo v4");
   });
 });
 

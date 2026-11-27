@@ -1,3 +1,4 @@
+import { AGENT } from "../domain/agent";
 import type { OrbState } from "../state/callReducer";
 
 const LABELS: Record<OrbState, string> = {
@@ -10,13 +11,13 @@ const LABELS: Record<OrbState, string> = {
 };
 
 /**
- * Pari's presence: a small sun. It breathes at rest, its rays turn while she
+ * Ajay's presence: a small sun. It breathes at rest, its rays turn while he
  * speaks, and blue ripples spread while the caller speaks. All motion is CSS,
  * keyed off `data-state`, and switches off under prefers-reduced-motion.
  */
 export function AgentOrb({ state, size = "lg" }: { state: OrbState; size?: "lg" | "sm" }) {
   return (
-    <div className={`orb orb--${size}`} data-state={state} role="img" aria-label={`Pari: ${LABELS[state]}`}>
+    <div className={`orb orb--${size}`} data-state={state} role="img" aria-label={`${AGENT.name}: ${LABELS[state]}`}>
       {size === "lg" && (
         <>
           <span className="orb__ripple" />

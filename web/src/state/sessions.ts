@@ -99,8 +99,10 @@ export function sourceLabel(source: SourceKind, scenarioTitle: string | null): s
       return "Demo v2 · speech to speech";
     case "demo_v3":
       return "Demo v3 · Cartesia agent";
+    case "demo_v4":
+      return "Demo v4 · ElevenLabs agent";
     case "live":
-      return "Live call";
+      return scenarioTitle ? `Live call · ${scenarioTitle}` : "Live call";
   }
 }
 

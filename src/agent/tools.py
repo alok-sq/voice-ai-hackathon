@@ -43,6 +43,11 @@ class CallSession:
         self.flow = CallFlow(self.lead)
         self.result: Optional[Dict[str, Any]] = None
         self.handoff_requested = False
+        self.interest_nudged = False
+        self.visit_nudged = False
+        self.visit_accepted = False
+        self.meeting_day = ""
+        self.hostile_warned = False
         self.started_at = time.time()
 
     # ---- lead ----

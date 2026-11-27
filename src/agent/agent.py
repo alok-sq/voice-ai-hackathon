@@ -61,8 +61,8 @@ SILENCE_NUDGE = {
     "en": "Hello, can you still hear me?",
 }
 SILENCE_GOODBYE = {
-    "hi": "लगता है अभी आप व्यस्त हैं। हम आपको बाद में कॉल करेंगे। धन्यवाद!",
-    "en": "It seems you are busy right now. We will call you back later. Thank you!",
+    "hi": "लगता है अभी आप व्यस्त हैं। हम आपको बाद में कॉल करेंगे। अलविदा, आपका दिन shubh रहे।",
+    "en": "It seems you are busy right now. We will call you back later. Goodbye, and have a good day.",
 }
 
 
@@ -103,7 +103,7 @@ def build_models(language: str):
 
 def build_s2s(language: str):
     """Gemini Live native audio: one model hears the caller and speaks back."""
-    gender = _env("VOICE_GENDER", "female").lower()
+    gender = _env("VOICE_GENDER", "male").lower()
     voice = _env("S2S_VOICE") or ("Puck" if gender == "male" else "Kore")
     return google.realtime.RealtimeModel(
         model=_env("S2S_MODEL", "gemini-3.8-live"),
@@ -174,7 +174,42 @@ class LeadAgent(Agent):
     async def on_user_turn_completed(self, turn_ctx: llm.ChatContext, new_message: llm.ChatMessage) -> None:
         text = new_message.text_content or ""
         if text and self.cs.result is None:
-            saved = self.cs.apply_turn(text, allow_defer=not _looks_like_side_question(text))
+            plan = guardrails.plan_special_turn(
+                self.cs.language,
+                self.cs.flow.pending_field(),
+                text,
+                interest_nudged=self.cs.interest_nudged,
+                visit_nudged=self.cs.visit_nudged,
+                visit_accepted=self.cs.visit_accepted,
+                meeting_day=self.cs.meeting_day,
+                hostile_warned=self.cs.hostile_warned,
+                side_question=_looks_like_side_question(text),
+            )
+            saved: list[str] = []
+            if plan:
+                for key, value in plan.get("set", {}).items():
+                    setattr(self.cs, key, value)
+                pending = self.cs.flow.pending_field()
+                before = self.cs.flow.current
+                if plan.get("defer") and pending:
+                    self.cs.flow.defer(pending)
+                    if self.cs.flow.current != before:
+                        self.cs.pub.emit("state", state=self.cs.flow.current.value)
+                save = plan.get("save")
+                if save:
+                    self.cs.update_lead(*save)
+                    saved = [save[0]]
+                if plan.get("end"):
+                    self.cs.end_call(plan["end"], plan.get("reason", ""))
+                    self._call.begin_closing(plan["end"])
+                    self._call.speak(plan["speak"], allow_interruptions=False, add_to_chat_ctx=False)
+                    raise StopResponse()
+                if plan.get("speak"):
+                    await self._refresh_instructions()
+                    self._call.speak(plan["speak"], allow_interruptions=True)
+                    raise StopResponse()
+            else:
+                saved = self.cs.apply_turn(text, allow_defer=not _looks_like_side_question(text))
             await self._refresh_instructions()
             if not _looks_like_side_question(text):
                 spoken = next_spoken_question(self.cs.flow, self.cs.language)
@@ -186,11 +221,6 @@ class LeadAgent(Agent):
                         self.cs.end_call(outcome, "wrap-up")
                         self._call.begin_closing(outcome)
                     raise StopResponse()
-        if guardrails.is_stop_request(text) and self.cs.result is None:
-            self.cs.end_call("do_not_call", "caller asked to stop")
-            self._call.begin_closing("do_not_call")
-            self._call.speak(guardrails.CLOSING_DNC, allow_interruptions=False, add_to_chat_ctx=False)
-            raise StopResponse()
 
     # ---------- output node: screen every sentence, mirror it to the console ----------
 

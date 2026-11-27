@@ -135,7 +135,65 @@ def test_forbidden_claim_allows_generic_mention(text):
 
 def test_greeting_contains_recording_notice():
     assert "रिकॉर्ड" in g.greeting("hi")
+    assert "अजय" in g.greeting("hi")
     assert "recorded" in g.greeting("en")
+    assert "Ajay" in g.greeting("en")
+
+
+def test_a_no_to_solar_gets_one_suggestion_then_a_goodbye():
+    first = g.plan_special_turn(
+        "hi", "solar_interest", "नहीं चाहिए।",
+        interest_nudged=False, visit_nudged=False, visit_accepted=False,
+        meeting_day="", hostile_warned=False, side_question=False,
+    )
+    assert first["speak"] == g.SUGGEST_SOLAR["hi"]
+    assert "end" not in first
+    second = g.plan_special_turn(
+        "hi", "solar_interest", "नहीं।",
+        interest_nudged=True, visit_nudged=False, visit_accepted=False,
+        meeting_day="", hostile_warned=False, side_question=False,
+    )
+    assert second["end"] == "not_qualified"
+    assert "shubh रहे" in second["speak"]
+
+
+def test_a_no_to_the_visit_asks_the_day_only_after_a_yes():
+    no = g.plan_special_turn(
+        "en", "meeting_slot", "No.",
+        interest_nudged=False, visit_nudged=False, visit_accepted=False,
+        meeting_day="", hostile_warned=False, side_question=False,
+    )
+    assert "another day" in no["speak"].lower()
+    day = g.plan_special_turn(
+        "hi", "meeting_slot", "हाँ।",
+        interest_nudged=False, visit_nudged=False, visit_accepted=False,
+        meeting_day="", hostile_warned=False, side_question=False,
+    )
+    assert "दिन" in day["speak"]
+    assert "save" not in day
+    time = g.plan_special_turn(
+        "hi", "meeting_slot", "परसों।",
+        interest_nudged=False, visit_nudged=False, visit_accepted=True,
+        meeting_day="", hostile_warned=False, side_question=False,
+    )
+    assert "बजे" in time["speak"]
+    saved = g.plan_special_turn(
+        "hi", "meeting_slot", "शाम छह बजे।",
+        interest_nudged=False, visit_nudged=False, visit_accepted=True,
+        meeting_day="परसों।", hostile_warned=False, side_question=False,
+    )
+    assert saved["save"] == ("meeting_slot", "परसों।, शाम छह बजे।")
+
+
+def test_do_not_call_closes_in_the_callers_language():
+    hi = g.plan_special_turn(
+        "hi", "solar_interest", "दोबारा कॉल मत करना।",
+        interest_nudged=False, visit_nudged=False, visit_accepted=False,
+        meeting_day="", hostile_warned=False, side_question=False,
+    )
+    assert hi["end"] == "do_not_call" and "shubh रहे" in hi["speak"]
+    en = g.closing_dnc("en")
+    assert en.endswith("Goodbye, and have a good day.")
 
 
 # ---- tools / session ----

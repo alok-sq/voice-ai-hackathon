@@ -1,4 +1,4 @@
-import { AudioLines, FlaskConical, Info, Mic, Moon, PhoneCall, Sun, Volume2, VolumeX, Waves } from "lucide-react";
+import { AudioLines, Bot, FlaskConical, Info, Mic, Moon, PhoneCall, Sun, Volume2, VolumeX, Waves } from "lucide-react";
 import type { ReactNode } from "react";
 import type { SourceKind } from "../sources";
 import type { Theme } from "../state/theme";
@@ -9,12 +9,15 @@ const CHIP: Record<SourceKind, { icon: ReactNode; label: string }> = {
   demo: { icon: <Mic size={14} />, label: "Demo · cascaded" },
   demo_v2: { icon: <AudioLines size={14} />, label: "Demo v2 · speech to speech" },
   demo_v3: { icon: <Waves size={14} />, label: "Demo v3 · Cartesia agent" },
+  demo_v4: { icon: <Bot size={14} />, label: "Demo v4 · ElevenLabs agent" },
   live: { icon: <PhoneCall size={14} />, label: "Live call" },
   scripted: { icon: <FlaskConical size={14} />, label: "Scripted playback" },
 };
 
 interface Props {
   source: SourceKind;
+  /** Which demo answers, shown on the Live chip. */
+  liveAgent?: string;
   tab: Tab;
   historyCount: number;
   onTab: (tab: Tab) => void;
@@ -27,7 +30,7 @@ interface Props {
 }
 
 /** Page title on the left, the call's actions on the right. Sticky, so Start/End is always in reach. */
-export function TopBar({ source, tab, historyCount, onTab, soundOn, onToggleSound, theme, onToggleTheme, onAbout, children }: Props) {
+export function TopBar({ source, liveAgent, tab, historyCount, onTab, soundOn, onToggleSound, theme, onToggleTheme, onAbout, children }: Props) {
   const dark = theme === "dark";
   const chip = CHIP[source];
   return (
@@ -37,7 +40,7 @@ export function TopBar({ source, tab, historyCount, onTab, soundOn, onToggleSoun
         <h1 className="topbar__h1">Lead qualification</h1>
         <span className="chip" data-source={source}>
           {chip.icon}
-          {chip.label}
+          {source === "live" && liveAgent ? `Live · ${liveAgent}` : chip.label}
         </span>
       </div>
       <nav className="tabs" aria-label="Views">
@@ -51,7 +54,7 @@ export function TopBar({ source, tab, historyCount, onTab, soundOn, onToggleSoun
       </nav>
       <div className="topbar__end">
         <div className="tools">
-          <button type="button" className="icon-btn" onClick={onAbout} aria-label="About Pari" title="About Pari">
+          <button type="button" className="icon-btn" onClick={onAbout} aria-label="About Ajay" title="About Ajay">
             <Info size={18} />
           </button>
           <button

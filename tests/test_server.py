@@ -7,6 +7,8 @@ ENV_KEYS = [
     "LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET",
     "SIP_OUTBOUND_TRUNK_ID", "TEST_NUMBER_ALLOWLIST",
     "TTS_API_KEY", "CARTESIA_AGENT_ID",
+    "ELEVENLABS_API_KEY", "ELEVENLABS_AGENT_ID",
+    "CARTESIA_FROM_NUMBER_ID", "ELEVENLABS_PHONE_NUMBER_ID",
 ]
 
 
@@ -130,6 +132,199 @@ def test_cartesia_session_returns_url_and_token_only(client, monkeypatch):
     assert seen["headers"]["X-API-Key"] == "sk_test"
     assert seen["json"] == {}
     assert "sk_test" not in r.text
+
+
+def test_elevenlabs_session_503_when_unconfigured(client):
+    r = client.post("/api/elevenlabs/session", json={"language": "hi"})
+    assert r.status_code == 503
+    assert "ELEVENLABS_API_KEY" in r.json()["detail"] and "ELEVENLABS_AGENT_ID" in r.json()["detail"]
+
+
+def test_elevenlabs_session_returns_a_signed_url(client, monkeypatch):
+    configure(monkeypatch, ELEVENLABS_API_KEY="xi_test", ELEVENLABS_AGENT_ID="agent_abc")
+    seen = {}
+
+    class FakeResponse:
+        status_code = 200
+
+        def json(self):
+            return {"signed_url": "wss://api.elevenlabs.io/v1/convai/conversation?agent_id=agent_abc&conversation_signature=sig"}
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def get(self, url, params=None, headers=None):
+            seen["url"] = url
+            seen["params"] = params
+            seen["headers"] = headers
+            return FakeResponse()
+
+    monkeypatch.setattr("httpx.AsyncClient", FakeClient)
+    r = client.post("/api/elevenlabs/session", json={"language": "hi"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["url"].startswith("wss://api.elevenlabs.io/")
+    assert body["callId"].startswith("elab-")
+    assert body["events"][0]["type"] == "state"
+    assert seen["params"] == {"agent_id": "agent_abc"}
+    assert seen["headers"]["xi-api-key"] == "xi_test"
+    assert "xi_test" not in r.text
+
+
+def test_call_rejects_unknown_agent(client, monkeypatch):
+    configure(monkeypatch, SIP_OUTBOUND_TRUNK_ID="ST_1", TEST_NUMBER_ALLOWLIST="+919800000001")
+    assert client.post("/api/call", json={"phone": "+919800000001", "agent": "demo_v9"}).status_code == 400
+
+
+def test_call_demo_v3_needs_a_from_number(client, monkeypatch):
+    configure(monkeypatch, TEST_NUMBER_ALLOWLIST="+919800000001", TTS_API_KEY="sk_test", CARTESIA_AGENT_ID="agent_abc")
+    r = client.post("/api/call", json={"phone": "+919800000001", "agent": "demo_v3"})
+    assert r.status_code == 503 and "CARTESIA_FROM_NUMBER_ID" in r.json()["detail"]
+
+
+def test_call_demo_v3_starts_a_cartesia_call(client, monkeypatch):
+    configure(
+        monkeypatch,
+        TEST_NUMBER_ALLOWLIST="+919800000001",
+        TTS_API_KEY="sk_test",
+        CARTESIA_AGENT_ID="agent_abc",
+        CARTESIA_FROM_NUMBER_ID="pn_123",
+    )
+    seen = {}
+
+    class FakeResponse:
+        status_code = 200
+
+        def json(self):
+            return {"calls": [{"number": "+919800000001", "agent_call_id": "ac_123"}]}
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def post(self, url, headers=None, json=None):
+            seen["url"] = url
+            seen["headers"] = headers
+            seen["json"] = json
+            return FakeResponse()
+
+    monkeypatch.setattr("httpx.AsyncClient", FakeClient)
+    r = client.post("/api/call", json={"phone": "+919800000001", "agent": "demo_v3"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["mode"] == "hosted" and body["callId"].startswith("cart-")
+    assert body["events"][0]["type"] == "state"
+    assert seen["url"] == "https://api.cartesia.ai/agents/calls"
+    assert seen["json"]["from_number_id"] == "pn_123"
+    assert seen["json"]["agent_id"] == "agent_abc"
+    assert seen["json"]["outbound_calls"] == [{"to_number": "+919800000001"}]
+    assert "sk_test" not in r.text
+
+
+def test_call_demo_v4_starts_an_elevenlabs_call(client, monkeypatch):
+    configure(
+        monkeypatch,
+        TEST_NUMBER_ALLOWLIST="+919800000001",
+        ELEVENLABS_API_KEY="xi_test",
+        ELEVENLABS_AGENT_ID="agent_abc",
+        ELEVENLABS_PHONE_NUMBER_ID="phn_123",
+    )
+    seen = {}
+
+    class FakeResponse:
+        status_code = 200
+
+        def json(self):
+            return {"success": True, "message": "ok", "conversation_id": "conv_123", "sip_call_id": "sip_1"}
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def post(self, url, headers=None, json=None):
+            seen["url"] = url
+            seen["json"] = json
+            seen["headers"] = headers
+            return FakeResponse()
+
+    monkeypatch.setattr("httpx.AsyncClient", FakeClient)
+    r = client.post("/api/call", json={"phone": "+919800000001", "agent": "demo_v4"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["mode"] == "hosted" and body["callId"].startswith("elab-")
+    assert seen["url"].endswith("/sip-trunk/outbound-call")
+    assert seen["json"] == {
+        "agent_id": "agent_abc",
+        "agent_phone_number_id": "phn_123",
+        "to_number": "+919800000001",
+    }
+    assert "xi_test" not in r.text
+
+
+def test_phone_sync_saves_new_lines_once(client, monkeypatch):
+    configure(
+        monkeypatch,
+        TEST_NUMBER_ALLOWLIST="+919800000001",
+        TTS_API_KEY="sk_test",
+        CARTESIA_AGENT_ID="agent_abc",
+        CARTESIA_FROM_NUMBER_ID="pn_123",
+    )
+    transcript = {"status": "started", "transcript": []}
+
+    class FakeResponse:
+        def __init__(self, payload, status_code=200):
+            self._payload = payload
+            self.status_code = status_code
+
+        def json(self):
+            return self._payload
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def post(self, url, headers=None, json=None):
+            return FakeResponse({"calls": [{"agent_call_id": "ac_123"}]})
+
+        async def get(self, url, headers=None):
+            return FakeResponse(transcript)
+
+    monkeypatch.setattr("httpx.AsyncClient", FakeClient)
+    started = client.post("/api/call", json={"phone": "+919800000001", "agent": "demo_v3"}).json()
+    transcript["transcript"] = [
+        {"role": "assistant", "text": "Kya aap rooftop solar lagwane mein interested hain?", "start_timestamp": 0, "end_timestamp": 1},
+        {"role": "user", "text": "Haan.", "start_timestamp": 2, "end_timestamp": 3},
+    ]
+    first = client.post("/api/phone/sync", json={"callId": started["callId"]}).json()
+    assert any(event.get("type") == "lead" and event.get("field") == "solar_interest" for event in first["events"])
+    assert first["ended"] is False
+    second = client.post("/api/phone/sync", json={"callId": started["callId"]}).json()
+    assert second["events"] == []
 
 
 def test_call_allowlist_matches_despite_formatting(client, monkeypatch):
