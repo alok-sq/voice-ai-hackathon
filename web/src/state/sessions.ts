@@ -97,6 +97,8 @@ export function sourceLabel(source: SourceKind, scenarioTitle: string | null): s
       return "Demo · cascaded";
     case "demo_v2":
       return "Demo v2 · speech to speech";
+    case "demo_v3":
+      return "Demo v3 · Cartesia agent";
     case "live":
       return "Live call";
   }

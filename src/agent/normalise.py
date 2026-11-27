@@ -37,7 +37,7 @@ _TOKEN_RE = re.compile(r"\d[\d,]*\.?\d*|[a-z]+|[\u0900-\u097F]+")
 
 def parse_amount(text: str) -> Optional[int]:
     """'3 hazaar' -> 3000, 'paanch sau' -> 500, 'dhai hazaar' -> 2500, '3,500 rupaye' -> 3500."""
-    text = text.lower().translate(_DEVANAGARI_DIGITS)
+    text = re.sub(r"[।॥!?]", " ", text.lower().translate(_DEVANAGARI_DIGITS))
     total = 0.0
     pending: Optional[float] = None
     found = False
@@ -87,7 +87,9 @@ def is_unknown(text: str) -> bool:
 
 
 def parse_yes_no(text: str) -> Optional[bool]:
-    tokens = set(re.findall(r"[a-z]+|[\u0900-\u097F]+", text.lower()))
+    # The danda (।) sits in the Devanagari block, so "नहीं।" would otherwise be one token and miss "नहीं".
+    cleaned = re.sub(r"[।॥!?.,]", " ", text or "")
+    tokens = set(re.findall(r"[a-z]+|[\u0900-\u097F]+", cleaned.lower()))
     yes = tokens & (_YES - _WEAK_YES)
     no = tokens & _NO
     if yes and no:
@@ -131,19 +133,43 @@ _ROOF_OWNED = ["own", "apna", "apni", "meri", "mera", "mine", "अपना", "�
 _NEG = ["nahi", "nahin", "nhi", "नहीं", "नही", "not"]
 
 
+def _clauses(text: str) -> list[str]:
+    parts = re.split(r"[,;]| lekin | but |\bpar\b| लेकिन | पर ", text.lower())
+    return [part.strip() for part in parts if part.strip()] or [text.lower()]
+
+
 def parse_roof_ownership(text: str) -> Optional[RoofOwnership]:
-    t = text.lower()
-    shared = _has(t, _ROOF_SHARED)
-    rented = _has(t, _ROOF_RENTED)
-    owned = _has(t, _ROOF_OWNED)
-    negated = _has(t, _NEG)
-    if shared and not negated:
-        return RoofOwnership.shared
-    if rented:
-        return RoofOwnership.rented
-    if owned:
+    """Ownership from what the caller asserted.
+
+    Negation applies inside a clause, so "मेरा अपना घर नहीं है" is not owned,
+    while "common nahi, meri hai" still is: the denial and the claim are separate.
+    """
+    affirmed_owned = affirmed_shared = affirmed_rented = False
+    denied_owned = denied_shared = False
+    for clause in _clauses(text or ""):
+        shared = _has(clause, _ROOF_SHARED)
+        rented = _has(clause, _ROOF_RENTED)
+        owned = _has(clause, _ROOF_OWNED)
+        negated = _has(clause, _NEG)
+        if rented:
+            affirmed_rented = True
+        if shared and not negated and not owned:
+            affirmed_shared = True
+        elif shared and negated and not owned:
+            denied_shared = True
+        if owned and not negated:
+            affirmed_owned = True
+        elif owned and negated:
+            denied_owned = True
+    if affirmed_owned:
         return RoofOwnership.owned
-    if shared and negated:
+    if affirmed_rented:
+        return RoofOwnership.rented
+    if affirmed_shared:
+        return RoofOwnership.shared
+    if denied_owned:
+        return RoofOwnership.rented
+    if denied_shared:
         return RoofOwnership.owned
     return None
 

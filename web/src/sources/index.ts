@@ -1,8 +1,10 @@
+import { createCartesiaSource } from "./cartesiaSource";
 import { createDemoSource } from "./demo/demoSource";
 import { throwIfAborted, type CallOptions, type CallSource, type ConnectMode, type Pipeline } from "./types";
 
 export function createSource(opts: CallOptions): CallSource {
   if (opts.source === "scripted") return createDemoSource(opts.scenarioId);
+  if (opts.source === "demo_v3") return createCartesiaSource(opts.language);
   const mode: ConnectMode = opts.source === "live" ? "phone" : "browser";
   const pipeline: Pipeline = opts.source === "demo_v2" ? "s2s" : "cascade";
   return createLazyLiveSource({ mode, language: opts.language, phone: opts.phone, pipeline });

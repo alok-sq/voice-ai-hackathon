@@ -68,6 +68,7 @@ def test_next_state_after_done_stays_done():
     ("3,500 rupaye", 3500),
     ("teen sau pachas", 350),
     ("तीन हज़ार", 3000),
+    ("पाँच हज़ार।", 5000),
     ("pata nahi", None),
 ])
 def test_parse_amount(text, expected):
@@ -76,6 +77,7 @@ def test_parse_amount(text, expected):
 
 @pytest.mark.parametrize("text,expected", [
     ("haan ji", True), ("nahi chahiye", False), ("hmm shayad", None), ("हाँ", True), ("नहीं", False),
+    ("Uh, नहीं।", False), ("हाँ।", True),
 ])
 def test_parse_yes_no(text, expected):
     assert nz.parse_yes_no(text) is expected
@@ -94,6 +96,8 @@ def test_parse_property_type():
     ("society ki chhat hai", RoofOwnership.shared),
     ("meri hai", RoofOwnership.owned),
     ("common nahi, meri hai", RoofOwnership.owned),
+    ("मेरा अपना घर नहीं है", RoofOwnership.rented),
+    ("meri nahi hai", RoofOwnership.rented),
     ("society mein flat hai", None),
 ])
 def test_parse_roof_ownership(text, expected):

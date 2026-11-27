@@ -1,4 +1,4 @@
-import { AudioLines, CircleAlert, FlaskConical, Languages, MapPin, Mic, Phone } from "lucide-react";
+import { AudioLines, CircleAlert, FlaskConical, Languages, MapPin, Mic, Phone, Waves } from "lucide-react";
 import { AGENT } from "../domain/agent";
 import { LANGUAGES, languageLabel } from "../domain/language";
 import { OUTCOME_LABELS } from "../domain/lead";
@@ -26,6 +26,11 @@ function sourceHint(health: Health | null, source: CallOptions["source"]): strin
   if (source === "scripted") return "Plays a pre-written call. No agent, no microphone, no keys.";
   if (!health) return "Checking the backend.";
   if (!health.reachable) return "Backend is not running. Start it to talk to the agent.";
+  if (source === "demo_v3") {
+    if (!health.cartesia)
+      return "Demo v3 needs TTS_API_KEY and CARTESIA_AGENT_ID in .env. The prompt is the one on that Cartesia agent.";
+    return "Cartesia's agent hears you and answers, in the language saved on that agent. Edit the prompt in the Cartesia dashboard. Use headphones.";
+  }
   if (!health.livekit) return "This needs the LiveKit keys in .env. Check /api/health for which are missing.";
   if (source === "live" && !health.phone)
     return "Phone calls need SIP_OUTBOUND_TRUNK_ID and TEST_NUMBER_ALLOWLIST in .env. Check /api/health.";
@@ -52,6 +57,7 @@ export function AgentSidebar({ view, health, options, onOptionsChange, phoneErro
   const scripted = options.source === "scripted";
   const phoneMode = options.source === "live";
   const s2s = options.source === "demo_v2";
+  const cartesia = options.source === "demo_v3";
   const elapsed = useElapsed(view.startedAt, view.endedAt);
   const orb = orbState(view);
   const caller = callerFor(options);
@@ -116,7 +122,9 @@ export function AgentSidebar({ view, health, options, onOptionsChange, phoneErro
                 ? "Live · Phone call"
                 : s2s
                   ? "Demo v2 · Speech to speech"
-                  : "Demo · Cascaded"} ·{" "}
+                  : cartesia
+                    ? "Demo v3 · Cartesia agent"
+                    : "Demo · Cascaded"} ·{" "}
             {languageLabel(options.language)}
           </p>
         ) : (
@@ -124,12 +132,14 @@ export function AgentSidebar({ view, health, options, onOptionsChange, phoneErro
             <div className="field">
               <span className="label">Source</span>
               <Segmented
+                className="seg--sources"
                 label="Call source"
                 value={options.source}
                 onChange={(source) => set({ source })}
                 options={[
                   { value: "demo", label: "Demo", icon: <Mic size={16} />, disabled: !health?.livekit },
                   { value: "demo_v2", label: "Demo v2", icon: <AudioLines size={16} />, disabled: !health?.livekit },
+                  { value: "demo_v3", label: "Demo v3", icon: <Waves size={16} />, disabled: !health?.cartesia },
                   { value: "live", label: "Live", icon: <Phone size={16} />, disabled: !health?.phone },
                   { value: "scripted", label: "Scripted", icon: <FlaskConical size={16} /> },
                 ]}

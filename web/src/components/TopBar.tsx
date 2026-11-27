@@ -1,4 +1,4 @@
-import { AudioLines, FlaskConical, Info, Mic, Moon, PhoneCall, Sun, Volume2, VolumeX } from "lucide-react";
+import { AudioLines, FlaskConical, Info, Mic, Moon, PhoneCall, Sun, Volume2, VolumeX, Waves } from "lucide-react";
 import type { ReactNode } from "react";
 import type { SourceKind } from "../sources";
 import type { Theme } from "../state/theme";
@@ -8,6 +8,7 @@ export type Tab = "call" | "history";
 const CHIP: Record<SourceKind, { icon: ReactNode; label: string }> = {
   demo: { icon: <Mic size={14} />, label: "Demo · cascaded" },
   demo_v2: { icon: <AudioLines size={14} />, label: "Demo v2 · speech to speech" },
+  demo_v3: { icon: <Waves size={14} />, label: "Demo v3 · Cartesia agent" },
   live: { icon: <PhoneCall size={14} />, label: "Live call" },
   scripted: { icon: <FlaskConical size={14} />, label: "Scripted playback" },
 };

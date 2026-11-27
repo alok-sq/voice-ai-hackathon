@@ -16,13 +16,14 @@ npm install
 npm run dev          # http://localhost:5173
 ```
 
-The console has four sources:
+The console has five sources:
 
 | Source | What it does | Needs |
 |---|---|---|
 | **Demo** | You talk to the cascaded agent (Sarvam STT → Gemini → Cartesia TTS) through the browser microphone. | Backend, agent worker, LiveKit keys |
 | **Demo v2** | Speech-to-speech: Gemini native audio hears you and speaks back in one hop. | Same as Demo (`LLM_API_KEY` must be a Gemini key) |
-| **Live call** | The backend dials a team test number and the console listens in. | Same, plus `SIP_OUTBOUND_TRUNK_ID` and `TEST_NUMBER_ALLOWLIST` |
+| **Demo v3** | The browser talks straight to the agent saved in the Cartesia dashboard. That agent hears and answers. This repo does not send a prompt. Caller answers, and any `update_lead` / `end_call` / `handoff_to_human` tool the agent calls, are saved to `out/cart-*.json` and the lead card. | Backend and `TTS_API_KEY` plus `CARTESIA_AGENT_ID`. No LiveKit worker. |
+| **Live call** | The backend dials a team test number and the console listens in. | Same as Demo, plus `SIP_OUTBOUND_TRUNK_ID` and `TEST_NUMBER_ALLOWLIST` |
 | **Scripted** | Plays a pre-written Hindi call through the same screens. | Nothing (offline fallback) |
 
 Checks: `npm test` (contract + call-state tests), `npm run typecheck`, `npm run build`.
@@ -39,8 +40,8 @@ Checks: `npm test` (contract + call-state tests), `npm run typecheck`, `npm run 
    ```bash
    PYTHONPATH=src .venv-agent/bin/python -m agent.agent start
    ```
-   It registers as `AGENT_NAME` and is dispatched into each call room by the backend. Demo uses Sarvam STT, Gemini (`LLM_MODEL`) and Cartesia Sonic TTS. Demo v2 uses Gemini native audio (`S2S_MODEL`). Each finished call writes `out/<room>.json`.
-4. Start the console (`npm run dev` in `web/`). Vite proxies `/api` to `http://localhost:8000` (override with `BACKEND_URL`). The console polls `GET /api/health`; **Demo** and **Demo v2** become selectable once LiveKit is configured and **Live call** once the SIP trunk is set, and the console lists any missing settings by name.
+   It registers as `AGENT_NAME` and is dispatched into each call room by the backend. Demo uses Sarvam STT, Gemini (`LLM_MODEL`) and Cartesia Sonic TTS. Demo v2 uses Gemini native audio (`S2S_MODEL`). Demo v3 does not use this worker: the console opens a session with the Cartesia agent in `CARTESIA_AGENT_ID`, and that agent's dashboard prompt is what answers. Each finished Demo or Demo v2 call writes `out/<room>.json`.
+4. Start the console (`npm run dev` in `web/`). Vite proxies `/api` to `http://localhost:8000` (override with `BACKEND_URL`). The console polls `GET /api/health`; **Demo** and **Demo v2** become selectable once LiveKit is configured, **Demo v3** once `TTS_API_KEY` and `CARTESIA_AGENT_ID` are set, and **Live call** once the SIP trunk is set. The console lists any missing LiveKit or phone settings by name.
 
 For the demo on stage, use `npm run build && npm run preview` (port 4173, same proxy).
 

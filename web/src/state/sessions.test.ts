@@ -66,6 +66,7 @@ describe("sourceLabel", () => {
   it("names each real-agent path", () => {
     expect(sourceLabel("demo", null)).toBe("Demo · cascaded");
     expect(sourceLabel("demo_v2", null)).toBe("Demo v2 · speech to speech");
+    expect(sourceLabel("demo_v3", null)).toBe("Demo v3 · Cartesia agent");
     expect(sourceLabel("live", null)).toBe("Live call");
   });
 });

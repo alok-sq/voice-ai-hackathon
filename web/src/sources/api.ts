@@ -5,10 +5,12 @@ export interface Health {
   reachable: boolean;
   livekit: boolean;
   phone: boolean;
+  /** Demo v3: Cartesia API key and the dashboard agent id are both set. */
+  cartesia: boolean;
   missing: string[];
 }
 
-const UNREACHABLE: Health = { reachable: false, livekit: false, phone: false, missing: [] };
+const UNREACHABLE: Health = { reachable: false, livekit: false, phone: false, cartesia: false, missing: [] };
 
 async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
   const res = await fetch(`/api${path}`, {
@@ -32,7 +34,13 @@ export async function fetchHealth(signal?: AbortSignal): Promise<Health> {
     const res = await fetch("/api/health", { signal });
     if (!res.ok) return UNREACHABLE;
     const j = (await res.json()) as Partial<Health>;
-    return { reachable: true, livekit: !!j.livekit, phone: !!j.phone, missing: j.missing ?? [] };
+    return {
+      reachable: true,
+      livekit: !!j.livekit,
+      phone: !!j.phone,
+      cartesia: !!j.cartesia,
+      missing: j.missing ?? [],
+    };
   } catch {
     return UNREACHABLE;
   }

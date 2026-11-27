@@ -56,14 +56,17 @@ export function useCall() {
     [stopSession],
   );
 
-  const end = useCallback(
-    (reason = "Call ended by you") => {
-      if (!sessionRef.current) return;
-      stopSession();
-      dispatch({ type: "end", reason, at: Date.now() });
-    },
-    [stopSession],
-  );
+  const end = useCallback(async (reason = "Call ended by you") => {
+    const session = sessionRef.current;
+    if (!session) return;
+    sessionRef.current = null;
+    session.abort.abort();
+    const pending = session.source.stop();
+    const events = pending instanceof Promise ? await pending : [];
+    const at = Date.now();
+    for (const event of events) dispatch({ type: "event", event, at });
+    dispatch({ type: "end", reason, at });
+  }, []);
 
   const requestHandoff = useCallback(async () => {
     const s = sessionRef.current;

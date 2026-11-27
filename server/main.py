@@ -22,6 +22,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from server.cartesia_calls import CALLS
+
 try:  # optional: load a local .env if python-dotenv is installed
     from dotenv import load_dotenv
 
@@ -31,6 +33,9 @@ except ImportError:
 
 REQUIRED_BASE = ["LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET"]
 REQUIRED_PHONE = ["SIP_OUTBOUND_TRUNK_ID"]
+REQUIRED_CARTESIA = ["TTS_API_KEY", "CARTESIA_AGENT_ID"]
+CARTESIA_VERSION = "2026-08-14"
+CARTESIA_SESSION_URL = "https://api.cartesia.ai/v1/agents/websocket/{agent_id}/sessions"
 PHONE_RE = re.compile(r"^\+?[0-9]{10,15}$")
 # Only rooms this backend creates (see _new_room) may be closed through /api/end.
 ROOM_RE = re.compile(r"^call-[0-9a-f]{8}$")
@@ -90,11 +95,44 @@ class EndRequest(BaseModel):
     room: str
 
 
+class CartesiaSessionRequest(BaseModel):
+    language: str = "hi"
+
+
+class CartesiaTurnRequest(BaseModel):
+    callId: str
+    role: str = "user"
+    text: str = ""
+    toolCalls: list = []
+
+
+class CartesiaToolRequest(BaseModel):
+    callId: str
+    name: str
+    arguments: dict = {}
+    toolId: str = ""
+
+
+class CartesiaEndRequest(BaseModel):
+    callId: str
+    reason: str = ""
+
+
+def cartesia_session_body(_language: str) -> dict:
+    """No prompt and no language override.
+
+    The dashboard agent already has a primary language. Sending `hi` on top of a saved
+    `hi-IN` is rejected, because Cartesia treats them as the same language.
+    """
+    return {}
+
+
 @app.get("/api/health")
 def health():
     return {
         "livekit": not _missing(REQUIRED_BASE),
         "phone": not _missing(REQUIRED_BASE + REQUIRED_PHONE),
+        "cartesia": not _missing(REQUIRED_CARTESIA),
         "missing": _missing(REQUIRED_BASE + REQUIRED_PHONE),
     }
 
@@ -130,6 +168,80 @@ async def token(req: TokenRequest):
                 )
             )
     return {"url": _env("LIVEKIT_URL"), "token": jwt.to_jwt(), "room": room}
+
+
+@app.post("/api/cartesia/session")
+async def cartesia_session(req: CartesiaSessionRequest):
+    """A short-lived browser session for the agent saved in the Cartesia dashboard.
+
+    The browser talks audio to Cartesia directly. This server never sends a system prompt,
+    so the dashboard prompt is what answers.
+    """
+    _require(REQUIRED_CARTESIA)
+    if req.language not in LANGUAGES:
+        raise HTTPException(400, detail="Unsupported language.")
+    agent_id = _env("CARTESIA_AGENT_ID") or ""
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", agent_id):
+        raise HTTPException(503, detail="Backend not configured. CARTESIA_AGENT_ID is not a valid agent id.")
+    import httpx
+
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            response = await client.post(
+                CARTESIA_SESSION_URL.format(agent_id=agent_id),
+                headers={
+                    "Cartesia-Version": CARTESIA_VERSION,
+                    "X-API-Key": _env("TTS_API_KEY") or "",
+                    "Content-Type": "application/json",
+                },
+                json=cartesia_session_body(req.language),
+            )
+    except httpx.HTTPError as exc:
+        raise HTTPException(502, detail="Could not reach Cartesia.") from exc
+    if response.status_code >= 400:
+        detail = "Cartesia refused the session."
+        try:
+            payload = response.json()
+            message = payload.get("message") or payload.get("detail") if isinstance(payload, dict) else None
+            if isinstance(message, str) and message.strip():
+                detail = message.strip()[:200]
+        except ValueError:
+            pass
+        raise HTTPException(502, detail=detail)
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise HTTPException(502, detail="Cartesia returned an unreadable session.") from exc
+    url = payload.get("url") if isinstance(payload, dict) else None
+    token = payload.get("token") if isinstance(payload, dict) else None
+    if not isinstance(url, str) or not isinstance(token, str) or not url or not token:
+        raise HTTPException(502, detail="Cartesia returned a session without a url and token.")
+    call_id, events = CALLS.open(req.language)
+    return {"url": url, "token": token, "callId": call_id, "events": events}
+
+
+@app.post("/api/cartesia/turn")
+def cartesia_turn(req: CartesiaTurnRequest):
+    try:
+        return CALLS.turn(req.callId, req.role, req.text, req.toolCalls)
+    except KeyError:
+        raise HTTPException(404, detail="Unknown Cartesia call.") from None
+
+
+@app.post("/api/cartesia/tool")
+def cartesia_tool(req: CartesiaToolRequest):
+    try:
+        return CALLS.tool(req.callId, req.name, req.arguments, req.toolId)
+    except KeyError:
+        raise HTTPException(404, detail="Unknown Cartesia call.") from None
+
+
+@app.post("/api/cartesia/end")
+def cartesia_end(req: CartesiaEndRequest):
+    try:
+        return CALLS.finish(req.callId, req.reason)
+    except KeyError:
+        raise HTTPException(404, detail="Unknown Cartesia call.") from None
 
 
 @app.post("/api/call")

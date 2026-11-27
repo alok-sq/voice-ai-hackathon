@@ -13,12 +13,13 @@ interface Props<T extends string> {
   options: SegmentOption<T>[];
   onChange: (value: T) => void;
   disabled?: boolean;
+  className?: string;
 }
 
 /** Single-choice toggle. A radio group for assistive tech, a segmented control visually. */
-export function Segmented<T extends string>({ label, value, options, onChange, disabled }: Props<T>) {
+export function Segmented<T extends string>({ label, value, options, onChange, disabled, className }: Props<T>) {
   return (
-    <div className="seg" role="radiogroup" aria-label={label}>
+    <div className={className ? `seg ${className}` : "seg"} role="radiogroup" aria-label={label}>
       {options.map((o) => (
         <button
           key={o.value}
