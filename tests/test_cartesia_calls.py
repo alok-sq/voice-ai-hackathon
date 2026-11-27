@@ -149,3 +149,74 @@ def test_unknown_call_is_rejected():
     except KeyError:
         return
     raise AssertionError("expected an unknown call to be rejected")
+
+
+# ---------- conversation log (SSE-15536): Redis during the call, PostgreSQL after ----------
+class _MemoryStore:
+    """Stands in for PostgreSQL."""
+
+    def __init__(self):
+        self.rows = {}
+
+    async def save(self, record):
+        self.rows[record["conversation_id"]] = record
+
+
+def _recorded_calls(tmp_path):
+    import pytest
+
+    fakeredis = pytest.importorskip("fakeredis")
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+    from agent.conversation.buffer import ConversationBuffer
+    from agent.conversation.persistence import ConversationPersistenceService
+    from agent.conversation.recorder import ConversationRecorder
+
+    redis = fakeredis.FakeAsyncRedis(decode_responses=True)
+    buffer = ConversationBuffer(redis)
+    store = _MemoryStore()
+    service = ConversationPersistenceService(buffer, store, spool_dir=str(tmp_path / "spool"), retry_delays_s=())
+    calls = CartesiaCalls(recorder_factory=lambda cid, lang: ConversationRecorder(
+        cid, buffer, service, language=lang, agent_name="solarsquare-lrm (cartesia)", channel="browser"))
+    return calls, redis, store
+
+
+def test_cartesia_call_is_buffered_in_redis_then_stored(tmp_path, monkeypatch):
+    import asyncio
+
+    monkeypatch.setenv("OUT_DIR", str(tmp_path))
+
+    async def scenario():
+        calls, redis, store = _recorded_calls(tmp_path)
+        call_id, _ = calls.open("hi")
+        calls.turn(call_id, "assistant", "Kya aapne solar ke baare mein enquiry ki thi?")
+        calls.turn(call_id, "user", "haan ji")
+        await calls._calls[call_id]["recorder"].flush()
+        assert await redis.hlen(f"conversation:{call_id}:messages") == 2  # stored during the call
+
+        calls.finish(call_id, "caller hung up")
+        assert await calls.persist(call_id, "caller hung up") is True
+        row = store.rows[call_id]
+        assert row["message_count"] == 2
+        assert [m["speaker"] for m in row["transcript"]] == ["agent", "customer"]
+        assert row["outcome"] == "callback"
+        assert row["lead"]["identity_confirmed"] is True
+        assert row["channel"] == "browser" and row["language"] == "hi"
+        assert "Customer:\nhaan ji" in row["text_log"]
+        assert await calls.persist(call_id) is False  # a second end does not store it again
+
+    asyncio.run(scenario())
+
+
+def test_call_works_when_recording_is_off_or_broken(tmp_path, monkeypatch):
+    import asyncio
+
+    monkeypatch.setenv("OUT_DIR", str(tmp_path))
+
+    def broken(_cid, _lang):
+        raise RuntimeError("redis client could not be built")
+
+    for calls in (CartesiaCalls(), CartesiaCalls(recorder_factory=broken)):
+        call_id, _ = calls.open("hi")
+        calls.turn(call_id, "user", "haan ji")
+        assert calls.finish(call_id, "caller hung up")["outcome"] == "callback"
+        assert asyncio.run(calls.persist(call_id)) is False

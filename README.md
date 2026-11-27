@@ -76,7 +76,7 @@ Lead values: `identity_confirmed`, `solar_interest`, `roof_access`, `loan_intere
 
 ## Conversation log (Redis -> PostgreSQL)
 
-The agent worker records every call on the backend; the console transcript is display only.
+The agent worker records every call on the backend; the console transcript is display only. Demo v3 (Cartesia) calls never reach the agent worker, so the backend records them the same way (`server/cartesia_calls.py`), and the backend venv needs `redis` and `asyncpg` too.
 
 ```
 agent events -> ConversationRecorder -> Redis buffer (live, per message) -> call ends -> PostgreSQL conversation_logs

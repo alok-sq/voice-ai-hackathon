@@ -3,6 +3,10 @@
 Cartesia holds the conversation. This store saves what the caller says, and any
 update_lead / end_call / handoff tool the agent calls, into the same lead record
 the other pipelines write.
+
+When a recorder factory is given (the backend passes one), every call is also recorded
+like the LiveKit pipelines: each line goes to Redis as it happens, and the finished
+conversation goes to PostgreSQL (see src/agent/conversation).
 """
 from __future__ import annotations
 
@@ -10,9 +14,11 @@ import json
 import os
 import re
 import sys
+import logging
 import threading
+import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Optional
 
 _SRC = Path(__file__).resolve().parents[1] / "src"
 if str(_SRC) not in sys.path:
@@ -21,6 +27,11 @@ if str(_SRC) not in sys.path:
 from agent import normalise as nz  # noqa: E402
 from agent.events import EventPublisher  # noqa: E402
 from agent.tools import CallSession  # noqa: E402
+
+logger = logging.getLogger("server.cartesia_calls")
+
+# (call_id, language) -> a ConversationRecorder, or None when recording is off.
+RecorderFactory = Callable[[str, str], Optional[Any]]
 
 CALL_ID_RE = re.compile(r"^cart-[0-9a-f]{8}$")
 # The caller's reply is saved only for the field the agent just asked about.
@@ -78,20 +89,24 @@ def _arg(params: Any, *keys: str) -> str:
 
 
 class CartesiaCalls:
-    def __init__(self) -> None:
+    def __init__(self, recorder_factory: Optional[RecorderFactory] = None) -> None:
         self._lock = threading.Lock()
         self._calls: dict[str, dict[str, Any]] = {}
+        self._recorder_factory = recorder_factory
 
     def open(self, language: str) -> tuple[str, list[dict[str, Any]]]:
         import secrets
 
         call_id = f"cart-{secrets.token_hex(4)}"
-        publisher = EventPublisher(lambda _payload, _topic: None)
+        recorder = self._start_recorder(call_id, language)
+        # The recorder sees every lead / outcome / handoff event the session emits.
+        publisher = EventPublisher(lambda _payload, _topic: None, listeners=[recorder.observe] if recorder else None)
         session = CallSession(call_id, language, publisher, out_dir=os.getenv("OUT_DIR", "out"))
         publisher.emit("state", state=session.flow.current.value)
         with self._lock:
             self._calls[call_id] = {
                 "session": session, "publisher": publisher, "cursor": 0, "tools": set(), "question": "",
+                "recorder": recorder,
             }
         return call_id, self._drain(call_id)
 
@@ -101,7 +116,9 @@ class CartesiaCalls:
         who = "caller" if role in ("user", "caller") else "agent"
         spoken = (text or "").strip()
         if spoken:
-            record["publisher"].remember_line(f"{'u' if who == 'caller' else 'a'}{len(record['publisher'].transcript) + 1}", who, spoken, True)
+            line_id = f"{'u' if who == 'caller' else 'a'}{len(record['publisher'].transcript) + 1}"
+            record["publisher"].remember_line(line_id, who, spoken, True)
+            self._record_line(record, line_id, who, spoken)
         notes = [self._apply_tool(record, tool) for tool in tool_calls or []]
         saved_by_tool = any(note.startswith("Saved ") for note in notes)
         if who == "agent" and spoken:
@@ -125,6 +142,44 @@ class CartesiaCalls:
             session.result["pipeline"] = "cartesia"
             session._write(session.result)
         return {"outcome": (session.result or {}).get("outcome"), "events": self._drain(call_id)}
+
+    async def persist(self, call_id: str, reason: str = "") -> bool:
+        """Close the recorded conversation and store it. Call after finish(). Never raises."""
+        try:
+            record = self._get(call_id)
+        except KeyError:
+            return False
+        recorder = record.get("recorder")
+        if recorder is None:
+            return False
+        session: CallSession = record["session"]
+        result = session.result if isinstance(session.result, dict) else None
+        try:
+            return await recorder.complete(reason or "call ended", result=result)
+        except Exception:  # a recording problem must never break the call
+            logger.exception("conversation_persist_failed call_id=%s", call_id)
+            return False
+
+    def _start_recorder(self, call_id: str, language: str) -> Optional[Any]:
+        if self._recorder_factory is None:
+            return None
+        try:
+            recorder = self._recorder_factory(call_id, language)
+        except Exception:  # recording is optional; the call goes on without it
+            logger.exception("conversation_recorder_failed call_id=%s", call_id)
+            return None
+        return recorder if recorder is not None and getattr(recorder, "enabled", False) else None
+
+    @staticmethod
+    def _record_line(record: dict[str, Any], line_id: str, who: str, text: str) -> None:
+        """Hand a spoken line to the recorder. Not emitted to the console, which already shows it."""
+        recorder = record.get("recorder")
+        if recorder is None:
+            return
+        recorder.observe({
+            "type": "transcript", "role": who, "text": text, "final": True, "id": line_id,
+            "seq": len(record["publisher"].transcript), "ts": int(time.time() * 1000),
+        })
 
     def _get(self, call_id: str) -> dict[str, Any]:
         if not CALL_ID_RE.match(call_id or ""):
@@ -268,6 +323,3 @@ def _save_explicit(session: CallSession, raw: Any) -> str:
     if notes:
         return " ".join(notes)
     return "No lead field was named. Nothing was saved."
-
-
-CALLS = CartesiaCalls()

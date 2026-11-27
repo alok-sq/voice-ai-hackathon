@@ -12,7 +12,9 @@ LiveKit API names verified against livekit-api 2.0.1 (pinned in requirements.txt
 """
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 import os
 import re
 import secrets
@@ -22,7 +24,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from server.cartesia_calls import CALLS
+from server.cartesia_calls import CartesiaCalls
 
 try:  # optional: load a local .env if python-dotenv is installed
     from dotenv import load_dotenv
@@ -41,6 +43,29 @@ PHONE_RE = re.compile(r"^\+?[0-9]{10,15}$")
 ROOM_RE = re.compile(r"^call-[0-9a-f]{8}$")
 LANGUAGES = {"hi", "mr", "ta", "kn", "en"}
 PIPELINES = {"cascade", "s2s"}
+
+logger = logging.getLogger("server")
+
+
+def _conversation_recorder(call_id: str, language: str):
+    """Record a Demo v3 (Cartesia) call: Redis during the call, PostgreSQL after.
+
+    Off (returns a disabled recorder) when neither REDIS_URL nor DATABASE_URL is set.
+    Must run on the server's event loop, so the Cartesia endpoints are async.
+    """
+    from agent.conversation.recorder import ConversationRecorder, ensure_reconciler
+
+    recorder = ConversationRecorder.from_env(
+        call_id, language=language, agent_name=f"{_agent_name()} (cartesia)", channel="browser",
+    )
+    if recorder.enabled:
+        ensure_reconciler()  # retries pending conversations, finalises abandoned ones
+    return recorder
+
+
+CALLS = CartesiaCalls(recorder_factory=_conversation_recorder)
+# Persist tasks run after /api/cartesia/end has answered; keep references so they are not collected.
+_PERSIST_TASKS: set[asyncio.Task] = set()
 
 app = FastAPI(title="Voice agent console backend")
 app.add_middleware(
@@ -221,7 +246,7 @@ async def cartesia_session(req: CartesiaSessionRequest):
 
 
 @app.post("/api/cartesia/turn")
-def cartesia_turn(req: CartesiaTurnRequest):
+async def cartesia_turn(req: CartesiaTurnRequest):
     try:
         return CALLS.turn(req.callId, req.role, req.text, req.toolCalls)
     except KeyError:
@@ -229,7 +254,7 @@ def cartesia_turn(req: CartesiaTurnRequest):
 
 
 @app.post("/api/cartesia/tool")
-def cartesia_tool(req: CartesiaToolRequest):
+async def cartesia_tool(req: CartesiaToolRequest):
     try:
         return CALLS.tool(req.callId, req.name, req.arguments, req.toolId)
     except KeyError:
@@ -237,11 +262,17 @@ def cartesia_tool(req: CartesiaToolRequest):
 
 
 @app.post("/api/cartesia/end")
-def cartesia_end(req: CartesiaEndRequest):
+async def cartesia_end(req: CartesiaEndRequest):
     try:
-        return CALLS.finish(req.callId, req.reason)
+        done = CALLS.finish(req.callId, req.reason)
     except KeyError:
         raise HTTPException(404, detail="Unknown Cartesia call.") from None
+    # Store the conversation without making the console wait. If this process dies first,
+    # the conversation is still in Redis and the reconciler stores it later.
+    task = asyncio.create_task(CALLS.persist(req.callId, req.reason))
+    _PERSIST_TASKS.add(task)
+    task.add_done_callback(_PERSIST_TASKS.discard)
+    return done
 
 
 @app.post("/api/call")

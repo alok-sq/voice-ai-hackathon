@@ -7,6 +7,7 @@ ENV_KEYS = [
     "LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET",
     "SIP_OUTBOUND_TRUNK_ID", "TEST_NUMBER_ALLOWLIST",
     "TTS_API_KEY", "CARTESIA_AGENT_ID",
+    "REDIS_URL", "DATABASE_URL",  # server tests never write to a real conversation log
 ]
 
 
