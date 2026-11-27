@@ -44,6 +44,7 @@ from livekit.agents.voice.room_io import RoomOptions  # noqa: E402
 from livekit.plugins import cartesia, google, sarvam, silero  # noqa: E402
 
 from . import guardrails  # noqa: E402
+from .conversation.recorder import ConversationRecorder, ensure_reconciler  # noqa: E402
 from .events import COMMANDS_TOPIC, EventPublisher  # noqa: E402
 from .metrics import CallMetrics  # noqa: E402
 from .pipeline import parse_dispatch_metadata  # noqa: E402
@@ -270,8 +271,11 @@ class CallRuntime:
         cs: CallSession,
         metrics: CallMetrics,
         pipeline: str = "cascade",
+        recorder: Optional[ConversationRecorder] = None,
     ):
         self.ctx = ctx
+        self.recorder = recorder
+        self._persist: Optional["asyncio.Future[bool]"] = None
         self.session = session
         self.cs = cs
         self.pub = cs.pub
@@ -600,11 +604,29 @@ class CallRuntime:
         self.cs.attach_metrics(self.metrics.summary())
         self._emit_usage()
         self.pub.emit("call_ended", reason=reason)
+        self._start_persist(reason)
         await asyncio.sleep(0.4)  # give the data packet time to flush
         try:
             await self.ctx.delete_room()
         except Exception:
             logger.exception("delete_room failed")
+        await self.wait_persisted()
+
+    def _start_persist(self, reason: str) -> None:
+        """Redis -> PostgreSQL for this call. Runs while the room shuts down; idempotent."""
+        if self.recorder is not None and self._persist is None:
+            self._persist = asyncio.ensure_future(self.recorder.complete(
+                reason, result=self.cs.result, metrics=self.metrics.summary(),
+                handoff_requested=self.cs.handoff_requested))
+
+    async def wait_persisted(self, reason: str = "worker shutdown") -> None:
+        """Also registered as a job shutdown callback, so persistence is not cut off mid-write."""
+        self._start_persist(reason)
+        if self._persist is not None:
+            try:
+                await self._persist  # bounded by the recorder's timeout; a miss stays pending in Redis
+            except Exception:
+                logger.exception("conversation persistence failed")
 
 
 async def _wait_for_caller(room: rtc.Room, timeout: float = 180.0) -> rtc.RemoteParticipant:
@@ -692,20 +714,26 @@ async def entrypoint(ctx: JobContext) -> None:
     def send(payload: bytes, topic: str):
         return ctx.room.local_participant.publish_data(payload, reliable=True, topic=topic)
 
-    pub = EventPublisher(send)
+    # Conversation log: every event -> Redis during the call -> PostgreSQL when it ends (SSE-15536).
+    recorder = ConversationRecorder.from_env(call_id, language=language, agent_name=_env("AGENT_NAME", "solarsquare-lrm"))
+    ensure_reconciler()
+    pub = EventPublisher(send, listeners=[recorder.observe] if recorder.enabled else None)
     cs = CallSession(call_id, language, pub, out_dir=_env("OUT_DIR", "out"))
     metrics = CallMetrics()
 
     session = _build_session(language, pipeline, ctx.proc.userdata["vad"])
-    runtime = CallRuntime(ctx, session, cs, metrics, pipeline=pipeline)
+    runtime = CallRuntime(ctx, session, cs, metrics, pipeline=pipeline, recorder=recorder if recorder.enabled else None)
     agent = LeadAgent(cs, ctx, runtime)
     runtime.attach()
+    if hasattr(ctx, "add_shutdown_callback"):
+        ctx.add_shutdown_callback(runtime.wait_persisted)
     ctx.room.on("data_received", runtime.on_data)
     ctx.room.on("participant_connected", runtime.on_participant)
 
     pub.emit("system", text=f"Agent joined ({language}, {pipeline}); waiting for the caller")
     caller = await _wait_for_caller(ctx.room)
     await _wait_until_answered(ctx.room, caller)
+    recorder.set_channel("phone" if caller.kind == SIP_KIND else "browser")
     pub.emit("system", text="Caller connected")
     pub.emit("state", state=cs.flow.current.value)
     runtime.send_snapshot()

@@ -74,6 +74,20 @@ Lead values: `identity_confirmed`, `solar_interest`, `roof_access`, `loan_intere
 
 **Agent setup notes:** in phone mode the console joins the room listen-only, so the agent must treat only the SIP participant as the caller. `POST /api/end` deletes the room, which disconnects the caller, the agent and the console.
 
+## Conversation log (Redis -> PostgreSQL)
+
+The agent worker records every call on the backend; the console transcript is display only.
+
+```
+agent events -> ConversationRecorder -> Redis buffer (live, per message) -> call ends -> PostgreSQL conversation_logs
+```
+
+- Set `REDIS_URL` and `DATABASE_URL` in `.env`. The `conversation_logs` table is created on first write (`src/agent/conversation/schema.sql`). With neither set, recording is off and calls work as before.
+- Each final transcript line is stored in `conversation:{room}:messages` as it happens (idempotent on the line id). Unpersisted conversations never expire; after PostgreSQL confirms the write, Redis keeps only a 1-day tombstone.
+- If PostgreSQL is down the conversation stays in Redis and the worker retries every 60 s. If Redis is down too, it is written to `out/conversation-spool/` and retried from there. Calls whose worker died mid-call are finalised as "abandoned" after 30 min idle.
+- Manual retry: `PYTHONPATH=src .venv/bin/python -m agent.conversation.reconcile` (add `--loop` to keep running).
+- No endpoint serves conversation logs; read them from PostgreSQL with your normal DB access.
+
 ## Safety rules built in
 
 - `/api/call` only dials numbers on `TEST_NUMBER_ALLOWLIST`. An empty list blocks all calls.
